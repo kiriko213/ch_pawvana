@@ -104,56 +104,45 @@ async def generate_speech(text, output_path, voice="ja-JP-NanamiNeural", rate="+
         print(f"Speech Generation Error: {e}")
         raise
 
-async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
+async def fetch_best_visual(query, api_key, target_animal="dog", forbidden_animals=["cat"], work_dir="."):
+    """
+    対象動物と禁止キーワードを厳格に指定してPexelsから動画を検索する。
+    """
     headers = {"Authorization": api_key}
     
-    # config.json から詳細な設定を読み込む（存在する場合）
-    target_animal = None
-    forbidden_animals = []
-    config_path = os.path.join(work_dir, "config.json")
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                cfg = json.load(f)
-                p_cfg = cfg.get(list(cfg.keys())[0], {})
-                target_animal = p_cfg.get("target_animal")
-                forbidden_animals = p_cfg.get("forbidden_animals", [])
-        except:
-            pass
-
-    if target_animal:
-        base_queries = [f"{target_animal} {query}", target_animal, f"cute {target_animal}"]
-        exclude = " ".join([f"-{a}" for a in forbidden_animals])
-    elif "ham" in profile_key:
-        base_queries = [f"hamster {query}", "hamster", "cute hamster"]
-        exclude = "-dog -cat -bird"
-    elif "dog" in profile_key:
-        base_queries = [f"dog {query}", "dog", "cute dog", "puppy"]
-        exclude = "-cat -bird -hamster"
-    elif "cat" in profile_key:
-        base_queries = [f"cat {query}", "cat", "cute cat", "kitten"]
-        exclude = "-dog -bird -hamster"
-    else:
-        base_queries = [query, "pets", "animal"]
-        exclude = ""
+    # 除外クエリの作成
+    exclude = " ".join([f"-{a}" for a in forbidden_animals])
+    
+    # 検索クエリの構築
+    # 1. Geminiが生成したキーワードに動物名を加える
+    # 2. 動物名単体
+    # 3. 可愛い動物
+    base_queries = [
+        f"{target_animal} {query}",
+        target_animal,
+        f"cute {target_animal}"
+    ]
 
     queries = [f"{q} {exclude}".strip() for q in base_queries]
-    
-    print(f"[DEBUG] Pexels Search Queries: {queries}") # ログ出力で検証可能にする
+    print(f"[DEBUG] Pexels Strict Queries: {queries}")
     
     for q in queries:
         try:
             v_url = f"https://api.pexels.com/videos/search?query={q}&per_page=15&orientation=portrait"
             res = requests.get(v_url, headers=headers)
+            res.raise_for_status()
             v_data = res.json()
             if v_data.get('videos'):
                 videos = v_data['videos']
+                # 12秒以上の動画を優先、なければ最初のもの
                 target_video = next((v for v in videos if v['duration'] >= 12), videos[0])
                 best_file = [f for f in target_video['video_files'] if f['width'] >= 720][0]
                 path = os.path.join(work_dir, "temp_bg.mp4")
                 with open(path, 'wb') as f: f.write(requests.get(best_file['link']).content)
                 return path, "video"
-        except: continue
+        except Exception as e:
+            print(f"[WARN] Pexels Search Error for '{q}': {e}")
+            continue
     return None, None
 
 async def assemble_video_professional(script, asset_path, asset_type, bgm_path, output_filename, voice="ja-JP-NanamiNeural", topic="", work_dir="."):

@@ -127,6 +127,11 @@ async def run_auto_post(work_dir=".", topic=None):
                 topic, channel_context=channel_context, api_key=gemini_key, feedback=current_feedback, language=language
             )
             
+            # 【重要】Gemini失敗時のプレースホルダー漏出を検知して即座に停止
+            if "Short dog insight" in script_content or not script_content:
+                print("FATAL: AI generated fallback English script. Aborting to prevent bad post.")
+                sys.exit(1)
+            
             # 文字化け対策
             title = strip_emojis(title)
             script_content = strip_emojis(script_content)
@@ -196,7 +201,13 @@ async def run_auto_post(work_dir=".", topic=None):
         if not pexels_key:
             raise Exception("FATAL: No Pexels API key available")
         
-        asset_path, asset_type = await generate_video.fetch_best_visual(search_query, pexels_key, profile_key=profile_key, work_dir=work_dir)
+        asset_path, asset_type = await generate_video.fetch_best_visual(
+            search_query, 
+            pexels_key, 
+            target_animal=target_animal, 
+            forbidden_animals=p.get('forbidden_animals', []), 
+            work_dir=work_dir
+        )
         print(f"ASSET: path={asset_path}, type={asset_type}")
         
         if not asset_path:

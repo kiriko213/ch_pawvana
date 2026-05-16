@@ -85,12 +85,13 @@ def generate_viral_script(topic="health", channel_context="", api_key=None, feed
         content = content_match.group(1).strip() if content_match else text
         
         keyword_match = re.search(r"PexelsKeyword:\s*(.*)", text)
-        keyword = "dog"
+        keyword = "dog" # デフォルト値（万が一用）
         if keyword_match:
             keyword = keyword_match.group(1).strip()
             content = content.replace(keyword_match.group(0), "").strip()
             
         return title, content, keyword
     except Exception as e:
-        print(f"Generation Error: {e}")
-        return "Dog Topic", "Short dog insight for you.", "dog"
+        print(f"FATAL: Gemini Generation Error: {e}")
+        raise
+
