@@ -24,7 +24,7 @@ def normalize_text_for_speech(text, language="ja"):
         # 文末に句点がない場合に補完（間を空けるため）
         if not text.endswith(("。", "！", "？")):
             text += "。"
-        # 長い文章に適度な読点を打つ（簡易的な処理）
+        # 長い文章に適度な読点を打つ
         text = text.replace("、", "、").replace("  ", " ")
     else:
         text = text.replace("VS", "versus").replace("vs", "versus")
@@ -32,7 +32,7 @@ def normalize_text_for_speech(text, language="ja"):
 
 def create_boxed_text_image(text, size=(1080, 1920), fontsize=60):
     """
-    中央に2-3行の読みやすい字幕画像を生成。
+    中央に2-3行の読みやすい字幕画像を生成。日本語・英語の両対応。
     """
     img = Image.new('RGBA', size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -40,10 +40,14 @@ def create_boxed_text_image(text, size=(1080, 1920), fontsize=60):
     if os.name == 'nt':
         font_path = "C:\\Windows\\Fonts\\meiryo.ttc"
     else:
+        # Linux (Ubuntu) 環境向けのフォント候補（CJKおよび英字標準）
         font_candidates = [
             "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
             "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-            "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc"
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
         ]
         font_path = next((p for p in font_candidates if os.path.exists(p)), None)
     
@@ -51,18 +55,31 @@ def create_boxed_text_image(text, size=(1080, 1920), fontsize=60):
 
     # 最大3行程度に収める
     max_width = 850
-    words = text.split(" ") if os.name != 'nt' else list(text) # 日本語は文字単位、英語は単語単位（簡易）
+    
+    # 日本語/中国語などの全角文字が含まれるか判定
+    is_cjk = any(ord(char) > 0x2000 for char in text)
+    
+    if is_cjk:
+        # 日本語などの文字単位での分割
+        words = list(text.strip())
+        join_char = ""
+    else:
+        # 英語などの単語単位での分割
+        words = text.strip().split()
+        join_char = " "
+        
     lines = []
     current_line = ""
     
     for word in words:
-        test_line = current_line + word + (" " if os.name != 'nt' else "")
+        test_line = (current_line + join_char + word).strip() if current_line else word
         if draw.textbbox((0, 0), test_line, font=font)[2] > max_width and current_line:
-            lines.append(current_line.strip())
-            current_line = word + (" " if os.name != 'nt' else "")
+            lines.append(current_line)
+            current_line = word
         else:
             current_line = test_line
-    lines.append(current_line.strip())
+    if current_line:
+        lines.append(current_line)
     
     # 描画位置の計算
     line_spacing = 30
@@ -114,9 +131,6 @@ async def fetch_best_visual(query, api_key, target_animal="dog", forbidden_anima
     exclude = " ".join([f"-{a}" for a in forbidden_animals])
     
     # 検索クエリの構築
-    # 1. Geminiが生成したキーワードに動物名を加える
-    # 2. 動物名単体
-    # 3. 可愛い動物
     base_queries = [
         f"{target_animal} {query}",
         target_animal,
@@ -134,7 +148,6 @@ async def fetch_best_visual(query, api_key, target_animal="dog", forbidden_anima
             v_data = res.json()
             if v_data.get('videos'):
                 videos = v_data['videos']
-                # 12秒以上の動画を優先、なければ最初のもの
                 target_video = next((v for v in videos if v['duration'] >= 12), videos[0])
                 best_file = [f for f in target_video['video_files'] if f['width'] >= 720][0]
                 path = os.path.join(work_dir, "temp_bg.mp4")
@@ -170,8 +183,23 @@ async def assemble_video_professional(script, asset_path, asset_type, bgm_path, 
     final_audio_content = CompositeAudioClip(audio_clips)
     
     if asset_type == "video" and asset_path:
-        bg = VideoFileClip(asset_path).without_audio().resize(height=1920)
-        bg = bg.crop(x_center=bg.w/2, y_center=bg.h/2, width=1080, height=1920)
+        clip = VideoFileClip(asset_path).without_audio()
+        
+        # 1. 1080x1920 (9:16) に完全に一致するアスペクト比で中央切り抜き（クロップ）
+        target_ratio = 1080 / 1920
+        clip_ratio = clip.w / clip.h
+        
+        if clip_ratio > target_ratio:
+            # 横幅が広すぎる場合、高さを基準にして幅を削る
+            new_w = int(clip.h * target_ratio)
+            bg_cropped = clip.crop(x_center=clip.w/2, y_center=clip.h/2, width=new_w, height=clip.h)
+        else:
+            # 縦が長すぎる場合、幅を基準にして高さを削る
+            new_h = int(clip.w / target_ratio)
+            bg_cropped = clip.crop(x_center=clip.w/2, y_center=clip.h/2, width=clip.w, height=new_h)
+            
+        # 2. トリミングした映像を、縦横比を一切歪ませずにジャスト1080x1920にリサイズする
+        bg = bg_cropped.resize(newsize=(1080, 1920))
         bg = bg.fx(vfx.loop, duration=duration) if bg.duration < duration else bg.subclip(0, duration)
     else:
         bg = ColorClip(size=(1080, 1920), color=(30, 30, 30)).set_duration(duration)

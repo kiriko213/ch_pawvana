@@ -59,15 +59,25 @@ async def run_auto_post(work_dir=".", topic=None):
     if not topic:
         if "topics" in p and p["topics"]:
             topics = p["topics"]
-        elif "_en" in profile_key:
-            if "dog" in profile_key:
+        elif "aesthetic" in profile_key:
+            # 旅行・地理・景観チャンネル向けトピック
+            topics = ["Beautiful landscape spots", "Famous historical landmarks", "Stunning geographical wonders", "Aesthetic nature travel", "Mystery travel destinations"]
+        elif "pawvana" in profile_key:
+            # 癒やし・マインドフルネス・スピリチュアル向けトピック
+            topics = ["Relaxing pet meditation", "Calm puppy relaxation", "Peaceful nature music", "Mindfulness for pets", "Soothing pet stories"]
+        elif "ham" in profile_key:
+            # ハムスター専用トピック
+            topics = ["ハムスターの豆知識", "可愛いハムスターの日常", "ハムスターのしつけと飼い方"]
+        elif "pets" in profile_key:
+            # 一般ペット向けトピック
+            topics = ["ペットの豆知識", "可愛い動物の癒やし", "ペットとの暮らし"]
+        elif "dog" in profile_key:
+            if "_en" in profile_key:
                 topics = ["Funny dog facts", "Puppy joy", "Dog training tips", "Smart dog tricks", "Living with dogs"]
             else:
-                topics = ["Cute animal moments", "Animal facts", "Heartwarming pets"]
-        elif "dog" in profile_key:
-            topics = ["犬の豆知識", "子犬の癒やし", "犬のしつけ", "賢い犬の行動", "犬との暮らし"]
+                topics = ["犬の豆知識", "子犬の癒やし", "犬のしつけ", "賢い犬 of the day", "犬との暮らし"]
         else:
-            topics = ["animal facts"]
+            topics = ["Beautiful nature spots", "Aesthetic scenes"]
         topic = random.choice(topics)
         
     # 言語の判定と音声モデルの厳格割り当て
