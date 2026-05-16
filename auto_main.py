@@ -45,7 +45,7 @@ async def run_auto_post(work_dir=".", topic=None):
         print(f"FATAL: config not found: {config_path}")
         sys.exit(1)
 
-    with open(config_path, 'r', encoding='utf-8') as f:
+    with open(config_path, 'r', encoding='utf-8-sig') as f:
         config = json.load(f)
     
     profile_key = list(config.keys())[0]
