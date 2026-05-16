@@ -2,10 +2,7 @@ import os
 import requests
 import random
 import re
-import asyncio
 import edge_tts
-import json
-import gtts
 from moviepy.editor import VideoFileClip, TextClip, CompositeVideoClip, AudioFileClip, ImageClip, ColorClip, concatenate_videoclips, CompositeAudioClip, vfx, afx
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import numpy as np
@@ -14,9 +11,28 @@ import numpy as np
 if not hasattr(Image, 'ANTIALIAS'):
     Image.ANTIALIAS = Image.LANCZOS
 
-def create_boxed_text_image(text, size=(1080, 1920), fontsize=55):
+def normalize_text_for_speech(text, language="ja"):
     """
-    中央の半透明ボックス＋白文字の字幕画像を生成。
+    ナレーション用にテキストを最適化する。
+    - 適切な位置に句読点を挿入して「間」を作る
+    - アルファベットの読みをカタカナに変換（誤読防止）
+    """
+    if language == "ja":
+        # 誤読防止
+        text = text.replace("VS", "バーサス").replace("vs", "バーサス")
+        text = text.replace("AI", "エーアイ")
+        # 文末に句点がない場合に補完（間を空けるため）
+        if not text.endswith(("。", "！", "？")):
+            text += "。"
+        # 長い文章に適度な読点を打つ（簡易的な処理）
+        text = text.replace("、", "、").replace("  ", " ")
+    else:
+        text = text.replace("VS", "versus").replace("vs", "versus")
+    return text
+
+def create_boxed_text_image(text, size=(1080, 1920), fontsize=60):
+    """
+    中央に2-3行の読みやすい字幕画像を生成。
     """
     img = Image.new('RGBA', size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
@@ -24,39 +40,42 @@ def create_boxed_text_image(text, size=(1080, 1920), fontsize=55):
     if os.name == 'nt':
         font_path = "C:\\Windows\\Fonts\\meiryo.ttc"
     else:
-        # GitHub Actions (Ubuntu) での Noto Sans CJK の一般的なパス
         font_candidates = [
             "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
             "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-            "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc",
-            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc"
         ]
         font_path = next((p for p in font_candidates if os.path.exists(p)), None)
     
     font = ImageFont.truetype(font_path, fontsize) if font_path and os.path.exists(font_path) else ImageFont.load_default()
 
-    max_width = 800
+    # 最大3行程度に収める
+    max_width = 850
+    words = text.split(" ") if os.name != 'nt' else list(text) # 日本語は文字単位、英語は単語単位（簡易）
     lines = []
     current_line = ""
-    for char in text.replace("\n", " ").strip():
-        test_line = current_line + char
+    
+    for word in words:
+        test_line = current_line + word + (" " if os.name != 'nt' else "")
         if draw.textbbox((0, 0), test_line, font=font)[2] > max_width and current_line:
-            lines.append(current_line)
-            current_line = char
+            lines.append(current_line.strip())
+            current_line = word + (" " if os.name != 'nt' else "")
         else:
             current_line = test_line
-    lines.append(current_line)
+    lines.append(current_line.strip())
     
-    line_heights = [draw.textbbox((0, 0), l, font=font)[3] - draw.textbbox((0, 0), l, font=font)[1] for l in lines]
-    total_text_height = sum(line_heights) + 25 * (len(lines) - 1)
-    box_width = 900
+    # 描画位置の計算
+    line_spacing = 30
+    total_text_height = sum([draw.textbbox((0, 0), l, font=font)[3] - draw.textbbox((0, 0), l, font=font)[1] for l in lines]) + line_spacing * (len(lines) - 1)
+    
+    box_width = 950
     box_height = total_text_height + 120
-    
     box_x = (size[0] - box_width) // 2
     box_y = (size[1] - box_height) // 2
+    
     overlay = Image.new('RGBA', size, (0, 0, 0, 0))
     overlay_draw = ImageDraw.Draw(overlay)
-    overlay_draw.rounded_rectangle([box_x, box_y, box_x + box_width, box_y + box_height], radius=30, fill=(30, 20, 10, 180))
+    overlay_draw.rounded_rectangle([box_x, box_y, box_x + box_width, box_y + box_height], radius=40, fill=(0, 0, 0, 160))
     img = Image.alpha_composite(img, overlay)
     draw = ImageDraw.Draw(img)
     
@@ -64,36 +83,26 @@ def create_boxed_text_image(text, size=(1080, 1920), fontsize=55):
     for line in lines:
         w = draw.textbbox((0, 0), line, font=font)[2]
         x = (size[0] - w) // 2
-        draw.text((x, current_y), line, font=font, fill=(255, 255, 255))
-        current_y += draw.textbbox((0, 0), line, font=font)[3] - draw.textbbox((0, 0), line, font=font)[1] + 25
+        draw.text((x, current_y), line, font=font, fill=(255, 255, 255), stroke_width=2, stroke_fill=(0,0,0))
+        current_y += draw.textbbox((0, 0), line, font=font)[3] - draw.textbbox((0, 0), line, font=font)[1] + line_spacing
         
     return img
 
-async def generate_speech(text, output_path, voice="ja-JP-NanamiNeural", rate="+5%"):
+async def generate_speech(text, output_path, voice="ja-JP-NanamiNeural", rate="+10%"):
     """
-    音声合成を行い、ファイルが正しく生成されたかチェックする。
-    edge_ttsがGitHub Actionsで403エラーになる場合、gTTSにフォールバックする。
+    edge-ttsを使用して音声を生成する。gTTSは使用しない。
     """
+    lang = "ja" if "ja-JP" in voice else "en"
+    clean_text = normalize_text_for_speech(text, language=lang)
+    
     try:
-        communicate = edge_tts.Communicate(text, voice, rate=rate)
+        communicate = edge_tts.Communicate(clean_text, voice, rate=rate)
         await communicate.save(output_path)
         if not os.path.exists(output_path) or os.path.getsize(output_path) < 100:
-            raise Exception("Generated audio file is empty or too small.")
+            raise Exception("Audio generation failed.")
     except Exception as e:
-        print(f"edge-tts Error: {e}, falling back to gTTS...")
-        try:
-            lang = "ja" if "ja-JP" in voice else "en"
-            tts = gtts.gTTS(text=text, lang=lang)
-            tts.save(output_path)
-            
-            # gTTSの音声速度をMoviePyで調整するため、ダミーのrate処理は省略
-            # gTTSは速度調整機能が弱いためそのまま保存する
-            
-            if not os.path.exists(output_path) or os.path.getsize(output_path) < 100:
-                raise Exception("gTTS output is empty.")
-        except Exception as fallback_e:
-            print(f"gTTS Fallback Error: {fallback_e}")
-            raise
+        print(f"Speech Generation Error: {e}")
+        raise
 
 async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
     headers = {"Authorization": api_key}
