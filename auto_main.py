@@ -70,10 +70,12 @@ async def run_auto_post(work_dir=".", topic=None):
             topics = ["animal facts"]
         topic = random.choice(topics)
         
-    # 言語の判定
+    # 言語の判定と音声モデルの厳格割り当て
     language = "ja" if "_jp" in profile_key else "en"
+    # 日本向けは Nanami, 海外向けは高品質な Ava を使用
+    voice_model = "ja-JP-NanamiNeural" if language == "ja" else "en-US-AvaNeural"
     
-    print(f"=== AUTO POST START: {p['profile_name']} (topic: {topic}, lang: {language}) ===")
+    print(f"=== AUTO POST START: {p['profile_name']} (topic: {topic}, lang: {language}, voice: {voice_model}) ===")
     
     try:
         # 1. 認証
@@ -144,7 +146,7 @@ async def run_auto_post(work_dir=".", topic=None):
             print("STEP: Audio duration check...")
             temp_audio_path = os.path.join(work_dir, "temp_audio_check.mp3")
             try:
-                await generate_video.generate_speech(script_content, temp_audio_path, voice=p['voice'], rate="+15%")
+                await generate_video.generate_speech(script_content, temp_audio_path, voice=voice_model, rate="+15%")
                 from moviepy.editor import AudioFileClip
                 a_clip = AudioFileClip(temp_audio_path)
                 audio_dur = a_clip.duration
@@ -236,7 +238,7 @@ async def run_auto_post(work_dir=".", topic=None):
             asset_type,
             bgm_path, 
             video_output_path,
-            voice=p['voice'],
+            voice=voice_model,
             topic=profile_key,
             work_dir=work_dir
         )
