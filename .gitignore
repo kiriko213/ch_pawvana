@@ -1,0 +1,8 @@
+﻿temp_audio/
+temp_audio_check.mp3
+temp_bg.mp4
+youtube_short.mp4
+tokens/
+*.pickle
+__pycache__/
+credentials*.json

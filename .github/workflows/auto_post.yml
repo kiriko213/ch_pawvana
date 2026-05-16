@@ -1,0 +1,46 @@
+﻿name: AI Shorts Post (Pawvana)
+
+on:
+  schedule:
+    # 繧｢繝｡繝ｪ繧ｫ譚ｱ驛ｨ譎る俣 08:00, 15:00, 20:00 (UTC 13:00, 20:00, 01:00)
+    - cron: '0 1,13,20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-post:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg fonts-liberation fonts-noto-cjk
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run Auto Post
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY_PAWVANA }}
+        PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY_PAWVANA }}
+        YOUTUBE_CLIENT_ID_PAWVANA: ${{ secrets.YOUTUBE_CLIENT_ID_PAWVANA }}
+        YOUTUBE_CLIENT_SECRET_PAWVANA: ${{ secrets.YOUTUBE_CLIENT_SECRET_PAWVANA }}
+        YOUTUBE_REFRESH_TOKEN_PAWVANA: ${{ secrets.YOUTUBE_REFRESH_TOKEN_PAWVANA }}
+        GITHUB_ACTIONS: "true"
+        PYTHONUNBUFFERED: "1"
+      run: |
+        python auto_main.py
+
