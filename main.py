@@ -1,4 +1,4 @@
-﻿import os
+import os
 import pickle
 import json
 import sys
@@ -12,10 +12,10 @@ from googleapiclient.errors import HttpError
 from google.oauth2.credentials import Credentials
 import generate_video
 
-# OAuth縺ｮ繧ｹ繧ｳ繝ｼ繝怜､画峩繧ｨ繝ｩ繝ｼ繧貞屓驕ｿ縺吶ｋ險ｭ螳・
+# OAuthのスコープ変更エラーを回避する設定
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 
-# 讓ｩ髯舌せ繧ｳ繝ｼ繝励・螳夂ｾｩ
+# 権限スコープの定義
 SCOPES_TASKS = [
     'https://www.googleapis.com/auth/tasks.readonly',
     'https://www.googleapis.com/auth/userinfo.email',
@@ -26,26 +26,26 @@ SCOPES_YOUTUBE = [
 ]
 
 def load_config(work_dir="."):
-    """config.json縺九ｉ險ｭ螳壹ｒ隱ｭ縺ｿ霎ｼ繧"""
+    """config.jsonから設定を読み込む"""
     config_path = os.path.join(work_dir, 'config.json')
     with open(config_path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 def get_authenticated_service(api_name, api_version, scopes, token_path=None, env_token_key=None, profile_key=None, work_dir="."):
-    """豎守畑逧・↑隱崎ｨｼ繝ｻ繧ｵ繝ｼ繝薙せ蜿門ｾ鈴未謨ｰ (繝ｭ繝ｼ繧ｫ繝ｫ繝輔ぃ繧､繝ｫ & 迺ｰ蠅・､画焚縺ｮ荳｡譁ｹ縺ｫ蟇ｾ蠢・"""
+    """汎用的な認証・サービス取得関数 (ローカルファイル & 環境変数の両方に対応)"""
     creds = None
     
-    # 1. 迺ｰ蠅・､画焚縺九ｉ縺ｮBase64繝医・繧ｯ繝ｳ隱ｭ縺ｿ霎ｼ縺ｿ・・lobeGuess遲峨・Pickle譁ｹ蠑擾ｼ・
+    # 1. 環境変数からのBase64トークン読み込み（GlobeGuess等のPickle方式）
     if env_token_key and os.environ.get(env_token_key):
         try:
-            print(f"[DEBUG] 迺ｰ蠅・､画焚 {env_token_key} 縺九ｉBase64繝医・繧ｯ繝ｳ繧貞ｾｩ蜈・＠縺ｾ縺吶・)
+            print(f"[DEBUG] 環境変数 {env_token_key} からBase64トークンを復元します。")
             token_data = base64.b64decode(os.environ.get(env_token_key))
             creds = pickle.loads(token_data)
-            print("[INFO] Base64繝医・繧ｯ繝ｳ縺ｮ蠕ｩ蜈・↓謌仙粥縺励∪縺励◆縲・)
+            print("[INFO] Base64トークンの復元に成功しました。")
         except Exception as e:
-            print(f"[ERROR] Base64繝医・繧ｯ繝ｳ蠕ｩ蜈・､ｱ謨・ {e}")
+            print(f"[ERROR] Base64トークン復元失敗: {e}")
 
-    # 2. 蛟句挨迺ｰ蠅・､画焚縺九ｉ縺ｮ隱崎ｨｼ・・ogs_jp, hamsters_jp, pets, pets_jp逕ｨ・・
+    # 2. 個別環境変数からの認証（dogs_jp, hamsters_jp, pets, pets_jp用）
     if not creds and profile_key:
         client_id = os.environ.get(f"YOUTUBE_CLIENT_ID_{profile_key.upper()}") or os.environ.get("YOUTUBE_CLIENT_ID")
         client_secret = os.environ.get(f"YOUTUBE_CLIENT_SECRET_{profile_key.upper()}") or os.environ.get("YOUTUBE_CLIENT_SECRET")
@@ -70,13 +70,13 @@ def get_authenticated_service(api_name, api_version, scopes, token_path=None, en
         else:
             print(f"AUTH_WARN: Missing env vars for profile {profile_key}")
 
-    # 3. 繝ｭ繝ｼ繧ｫ繝ｫ繝輔ぃ繧､繝ｫ縺九ｉ縺ｮ隱ｭ縺ｿ霎ｼ縺ｿ
+    # 3. ローカルファイルからの読み込み
     if not creds and token_path and os.path.exists(token_path):
         with open(token_path, 'rb') as token:
             creds = pickle.load(token)
-            print("[INFO] 繝ｭ繝ｼ繧ｫ繝ｫ縺ｮ繝医・繧ｯ繝ｳ繝輔ぃ繧､繝ｫ繧定ｪｭ縺ｿ霎ｼ縺ｿ縺ｾ縺励◆縲・)
+            print("[INFO] ローカルのトークンファイルを読み込みました。")
             
-    # 隱崎ｨｼ諠・ｱ縺ｮ閾ｪ蜍墓峩譁ｰ・医Ο繝ｼ繧ｫ繝ｫ & 繧ｯ繝ｩ繧ｦ繝牙・騾夲ｼ・
+    # 認証情報の自動更新（ローカル & クラウド共通）
     if creds:
         print(f"AUTH_CREDS_VALID: {creds.valid}")
         print(f"AUTH_CREDS_EXPIRED: {creds.expired}")
@@ -94,39 +94,39 @@ def get_authenticated_service(api_name, api_version, scopes, token_path=None, en
             traceback.print_exc()
             creds = None
 
-    # 譁ｰ隕剰ｪ崎ｨｼ・医Ο繝ｼ繧ｫ繝ｫ迺ｰ蠅・ｰら畑縲ゆｸ願ｨ倥☆縺ｹ縺ｦ縺ｧ隱崎ｨｼ縺悟叙繧後↑縺九▲縺溷ｴ蜷茨ｼ・
+    # 新規認証（ローカル環境専用。上記すべてで認証が取れなかった場合）
     if not creds or not creds.valid:
-        # GitHub Actions迺ｰ蠅・〒縺ｯ繝悶Λ繧ｦ繧ｶ隱崎ｨｼ縺後〒縺阪↑縺・◆繧√√お繝ｩ繝ｼ繧貞・縺励※邨ゆｺ・＆縺帙ｋ
+        # GitHub Actions環境ではブラウザ認証ができないため、エラーを出して終了させる
         if os.environ.get("GITHUB_ACTIONS") == "true":
-            print("\n[ERROR] 圷 隱崎ｨｼ繝医・繧ｯ繝ｳ縺檎┌蜉ｹ縺ｾ縺溘・譛滄剞蛻・ｌ縺ｧ縺吶・)
-            print("繝ｭ繝ｼ繧ｫ繝ｫ迺ｰ蠅・〒 get_refresh_token_...py 繧貞ｮ溯｡後＠縲∫函謌舌＆繧後◆譁ｰ縺励＞繝医・繧ｯ繝ｳ繧・)
-            print("GitHub縺ｮSecrets縺ｫ逋ｻ骭ｲ縺礼峩縺励※縺上□縺輔＞縲・)
+            print("\n[ERROR] 🚨 認証トークンが無効または期限切れです。")
+            print("ローカル環境で get_refresh_token_...py を実行し、生成された新しいトークンを")
+            print("GitHubのSecretsに登録し直してください。")
             raise Exception("Authentication token is invalid or expired in GitHub Actions environment.")
 
         if token_path:
             os.makedirs(os.path.dirname(token_path), exist_ok=True) if os.path.dirname(token_path) else None
-        print(f"\n--- {api_name} 縺ｮ譁ｰ隕剰ｪ崎ｨｼ繧帝幕蟋九＠縺ｾ縺・---")
+        print(f"\n--- {api_name} の新規認証を開始します ---")
         
-        # 蛻ｩ逕ｨ蜿ｯ閭ｽ縺ｪ隱崎ｨｼ繝輔ぃ繧､繝ｫ繧帝・分縺ｫ隧ｦ縺・
+        # 利用可能な認証ファイルを順番に試す
         client_secret_candidates = [
             os.path.join(work_dir, 'credentials.json'),
             os.path.join(work_dir, 'credentials_2.json'),
             os.path.join(work_dir, 'credentials_3.json'),
-            'credentials.json' # 繝輔か繝ｼ繝ｫ繝舌ャ繧ｯ
+            'credentials.json' # フォールバック
         ]
         
         flow = None
         for secret_file in client_secret_candidates:
             if os.path.exists(secret_file):
                 try:
-                    print(f"[INFO] 隱崎ｨｼ繝輔ぃ繧､繝ｫ {secret_file} 繧剃ｽｿ逕ｨ縺励※隱崎ｨｼ繧定ｩｦ縺ｿ縺ｾ縺・..")
+                    print(f"[INFO] 認証ファイル {secret_file} を使用して認証を試みます...")
                     flow = InstalledAppFlow.from_client_secrets_file(secret_file, scopes)
                     break
                 except Exception as e:
-                    print(f"[WARN] {secret_file} 縺ｧ縺ｮ繧ｨ繝ｩ繝ｼ: {e}")
+                    print(f"[WARN] {secret_file} でのエラー: {e}")
         
         if not flow:
-            print("[ERROR] 蛻ｩ逕ｨ蜿ｯ閭ｽ縺ｪ credentials*.json 縺御ｸ縺､繧りｦ九▽縺九ｊ縺ｾ縺帙ｓ縲・)
+            print("[ERROR] 利用可能な credentials*.json が一つも見つかりません。")
             raise Exception("No credentials file available.")
              
         creds = flow.run_local_server(port=0, prompt='consent select_account')
@@ -134,59 +134,59 @@ def get_authenticated_service(api_name, api_version, scopes, token_path=None, en
         if token_path:
             with open(token_path, 'wb') as token:
                 pickle.dump(creds, token)
-        print("[INFO] 譁ｰ隕剰ｪ崎ｨｼ縺悟ｮ御ｺ・＠縲√ヨ繝ｼ繧ｯ繝ｳ繧剃ｿ晏ｭ倥＠縺ｾ縺励◆縲・)
+        print("[INFO] 新規認証が完了し、トークンを保存しました。")
             
-    print(f"[INFO] YouTube API ({api_name} {api_version}) 縺ｮ繝薙Ν繝峨ｒ螳溯｡後＠縺ｾ縺吶・)
+    print(f"[INFO] YouTube API ({api_name} {api_version}) のビルドを実行します。")
     return build(api_name, api_version, credentials=creds, static_discovery=False)
 
 def check_youtube_channel(service, target_id):
-    """繝ｭ繧ｰ繧､繝ｳ荳ｭ縺ｮ繝√Ε繝ｳ繝阪Ν縺後ち繝ｼ繧ｲ繝・ヨID縺ｨ荳閾ｴ縺吶ｋ縺狗｢ｺ隱阪☆繧・""
-    print(f"--- 繧ｿ繝ｼ繧ｲ繝・ヨ繝√Ε繝ｳ繝阪Ν縺ｮ遒ｺ隱・(ID: {target_id}) ---")
+    """ログイン中のチャンネルがターゲットIDと一致するか確認する"""
+    print(f"--- ターゲットチャンネルの確認 (ID: {target_id}) ---")
     
-    # 1. 縺ｾ縺・mine=True 縺ｧ閾ｪ蛻・′謇譛峨☆繧九メ繝｣繝ｳ繝阪Ν繧貞叙蠕・
+    # 1. まず mine=True で自分が所有するチャンネルを取得
     channels = []
     try:
         results = service.channels().list(mine=True, part='snippet').execute()
         channels = results.get('items', [])
     except Exception as e:
-        print(f"[WARN] mine=True 縺ｧ縺ｮ蜿門ｾ励↓螟ｱ謨励＠縺ｾ縺励◆: {e}")
+        print(f"[WARN] mine=True での取得に失敗しました: {e}")
     
-    # 2. 逶ｴ謗･ID謖・ｮ壹〒繧ょ叙蠕励ｒ隧ｦ縺ｿ繧具ｼ医ヶ繝ｩ繝ｳ繝峨い繧ｫ繧ｦ繝ｳ繝亥ｯｾ遲厄ｼ・
+    # 2. 直接ID指定でも取得を試みる（ブランドアカウント対策）
     try:
         id_results = service.channels().list(id=target_id, part='snippet').execute()
         id_channels = id_results.get('items', [])
-        # 驥崎､・ｒ驕ｿ縺代※繝槭・繧ｸ
+        # 重複を避けてマージ
         existing_ids = [c['id'] for c in channels]
         for c in id_channels:
             if c['id'] not in existing_ids:
                 channels.append(c)
     except Exception as e:
-        print(f"[WARN] ID謖・ｮ壹〒縺ｮ蜿門ｾ励↓螟ｱ謨励＠縺ｾ縺励◆: {e}")
+        print(f"[WARN] ID指定での取得に失敗しました: {e}")
         
     for channel in channels:
         if channel['id'] == target_id:
-            print(f"[OK] 謌仙粥: '{channel['snippet']['title']}' 縺ｨ縺励※隱崎ｨｼ縺輔ｌ縺ｦ縺・∪縺吶・)
+            print(f"[OK] 成功: '{channel['snippet']['title']}' として認証されています。")
             return True
             
-    print("[ERROR] 繧ｨ繝ｩ繝ｼ: 謖・ｮ壹＆繧後◆YouTube繝√Ε繝ｳ繝阪Ν縺瑚ｪ崎ｨｼ繝ｪ繧ｹ繝医↓隕九▽縺九ｊ縺ｾ縺帙ｓ縲・)
+    print("[ERROR] エラー: 指定されたYouTubeチャンネルが認証リストに見つかりません。")
     if channels:
-        print("迴ｾ蝨ｨ繧｢繧ｯ繧ｻ繧ｹ蜿ｯ閭ｽ縺ｪ繝√Ε繝ｳ繝阪Ν:")
+        print("現在アクセス可能なチャンネル:")
         for c in channels:
             print(f" - {c['snippet']['title']} (ID: {c['id']})")
     return False
 
 def get_channel_context(service, target_id):
     """
-    驥崎､・亟豁｢縺ｨ蟄ｦ鄙偵・縺溘ａ縺ｫ縲∝ｯｾ雎｡繝√Ε繝ｳ繝阪Ν縺ｮ逶ｴ霑代・蜍慕判縺ｨ莠ｺ豌怜虚逕ｻ縺ｮ繧ｿ繧､繝医Ν繧貞叙蠕励☆繧九・
+    重複防止と学習のために、対象チャンネルの直近の動画と人気動画のタイトルを取得する。
     """
     if not target_id:
         return ""
         
     try:
-        print(f"--- 繝√Ε繝ｳ繝阪Ν縺ｮ蟄ｦ鄙偵ョ繝ｼ繧ｿ繧貞叙蠕嶺ｸｭ (ID: {target_id}) ---")
+        print(f"--- チャンネルの学習データを取得中 (ID: {target_id}) ---")
         context_str = ""
         
-        # 1. 逶ｴ霑代・蜍慕判・域怙譁ｰ15莉ｶ・・
+        # 1. 直近の動画（最新15件）
         recent_req = service.search().list(
             part='snippet', channelId=target_id, order='date', type='video', maxResults=15
         )
@@ -194,11 +194,11 @@ def get_channel_context(service, target_id):
         recent_titles = [item['snippet']['title'] for item in recent_res.get('items', [])]
         
         if recent_titles:
-            context_str += "縲審ecent Topics (DO NOT REPEAT)縲曾n"
+            context_str += "【Recent Topics (DO NOT REPEAT)】\n"
             for t in recent_titles:
                 context_str += f"- {t}\n"
                 
-        # 2. 莠ｺ豌励・蜍慕判・亥・逕溷屓謨ｰ繝医ャ繝・莉ｶ・・
+        # 2. 人気の動画（再生回数トップ5件）
         top_req = service.search().list(
             part='snippet', channelId=target_id, order='viewCount', type='video', maxResults=5
         )
@@ -206,17 +206,17 @@ def get_channel_context(service, target_id):
         top_titles = [item['snippet']['title'] for item in top_res.get('items', [])]
         
         if top_titles:
-            context_str += "\n縲慎op Performing Topics (USE AS INSPIRATION)縲曾n"
+            context_str += "\n【Top Performing Topics (USE AS INSPIRATION)】\n"
             for t in top_titles:
                 context_str += f"- {t}\n"
                 
         return context_str
     except Exception as e:
-        print(f"蟄ｦ鄙偵ョ繝ｼ繧ｿ縺ｮ蜿門ｾ励↓螟ｱ謨励＠縺ｾ縺励◆: {e}")
+        print(f"学習データの取得に失敗しました: {e}")
         return ""
 
 def fetch_latest_task(service, list_name="My Tasks"):
-    """ToDo繝ｪ繧ｹ繝医°繧画怙譁ｰ縺ｮ繧ｿ繧ｹ繧ｯ繧貞叙蠕励☆繧・""
+    """ToDoリストから最新のタスクを取得する"""
     lists = service.tasklists().list().execute().get('items', [])
     target_list = next((l for l in lists if l['title'] == list_name), lists[0] if lists else None)
     
@@ -225,21 +225,21 @@ def fetch_latest_task(service, list_name="My Tasks"):
     tasks = service.tasks().list(tasklist=target_list['id']).execute().get('items', [])
     if not tasks: return None
     
-    # 螳御ｺ・＠縺ｦ縺・↑縺・怙譁ｰ縺ｮ繧ｿ繧ｹ繧ｯ繧定ｿ斐☆
+    # 完了していない最新のタスクを返す
     for task in tasks:
         if task.get('status') != 'completed' and task.get('notes'):
             return task
     return None
 
 def upload_to_youtube(service, video_file, title, description, tags):
-    """YouTube縺ｫ繧｢繝・・繝ｭ繝ｼ繝峨☆繧・""
-    print(f"--- YouTube繧｢繝・・繝ｭ繝ｼ繝蛾幕蟋・ {title} ---")
+    """YouTubeにアップロードする"""
+    print(f"--- YouTubeアップロード開始: {title} ---")
     
     if not os.path.exists(video_file):
-        print(f"[ERROR] 蜍慕判繝輔ぃ繧､繝ｫ縺悟ｭ伜惠縺励∪縺帙ｓ: {video_file}")
-        raise FileNotFoundError(f"蜍慕判繝輔ぃ繧､繝ｫ縺瑚ｦ九▽縺九ｊ縺ｾ縺帙ｓ: {video_file}")
+        print(f"[ERROR] 動画ファイルが存在しません: {video_file}")
+        raise FileNotFoundError(f"動画ファイルが見つかりません: {video_file}")
         
-    print(f"[DEBUG] 蟇ｾ雎｡繝輔ぃ繧､繝ｫ繝代せ: {video_file} (螳溷惠繧堤｢ｺ隱・")
+    print(f"[DEBUG] 対象ファイルパス: {video_file} (実在を確認)")
     
     body = {
         'snippet': {
@@ -253,7 +253,7 @@ def upload_to_youtube(service, video_file, title, description, tags):
             'selfDeclaredMadeForKids': False
         }
     }
-    print(f"[INFO] 繝励Λ繧､繝舌す繝ｼ險ｭ螳・ {body['status']['privacyStatus']}")
+    print(f"[INFO] プライバシー設定: {body['status']['privacyStatus']}")
     
     try:
         media = MediaFileUpload(video_file, chunksize=-1, resumable=True, mimetype='video/mp4')
@@ -263,67 +263,67 @@ def upload_to_youtube(service, video_file, title, description, tags):
         while response is None:
             status, response = request.next_chunk()
             if status:
-                print(f"[INFO] 繧｢繝・・繝ｭ繝ｼ繝蛾ｲ陦御ｸｭ: {int(status.progress() * 100)}%")
+                print(f"[INFO] アップロード進行中: {int(status.progress() * 100)}%")
                 
-        print(f"[OK] 繧｢繝・・繝ｭ繝ｼ繝牙ｮ御ｺ・ｼ・蜍慕判ID: {response.get('id')}")
+        print(f"[OK] アップロード完了！ 動画ID: {response.get('id')}")
         return response.get('id')
     except HttpError as e:
-        print(f"[ERROR] API HTTP繧ｨ繝ｩ繝ｼ逋ｺ逕・ 繧ｳ繝ｼ繝・{e.resp.status}")
-        print(f"[ERROR] 隧ｳ邏ｰ: {e.content.decode('utf-8')}")
+        print(f"[ERROR] API HTTPエラー発生: コード {e.resp.status}")
+        print(f"[ERROR] 詳細: {e.content.decode('utf-8')}")
         if e.resp.status in [401, 403]:
-            print("[ERROR] 圷 隱崎ｨｼ繧ｨ繝ｩ繝ｼ縺ｾ縺溘・Quota・・PI蛻ｩ逕ｨ譫・峨・雜・℃縺檎匱逕溘＠縺ｦ縺・∪縺吶・)
-            print("  -> 蟇ｾ遲・ refresh_token縺梧怏蜉ｹ縺九√∪縺溘・Google Cloud Console縺ｧ荳企剞縺ｫ驕斐＠縺ｦ縺・↑縺・°遒ｺ隱阪＠縺ｦ縺上□縺輔＞縲・)
+            print("[ERROR] 🚨 認証エラーまたはQuota（API利用枠）の超過が発生しています。")
+            print("  -> 対策: refresh_tokenが有効か、またはGoogle Cloud Consoleで上限に達していないか確認してください。")
         raise
     except Exception as e:
-        print(f"[ERROR] 莠域悄縺帙〓繧｢繝・・繝ｭ繝ｼ繝峨お繝ｩ繝ｼ: {e}")
+        print(f"[ERROR] 予期せぬアップロードエラー: {e}")
         raise
 
 async def main():
-    # 蠑墓焚縺九ｉ繝励Ο繝輔ぃ繧､繝ｫ繧貞叙蠕・(繝・ヵ繧ｩ繝ｫ繝医・macro)
+    # 引数からプロファイルを取得 (デフォルトはmacro)
     config = load_config()
-    profile_key = sys.argv[1] if len(sys.argv) > 1 else list(config.keys())[0]
+    profile_key = list(config.keys())[0] if config else 'macro'
     
     if profile_key not in config:
-        print(f"繧ｨ繝ｩ繝ｼ: 繝励Ο繝輔ぃ繧､繝ｫ '{profile_key}' 縺瑚ｦ九▽縺九ｊ縺ｾ縺帙ｓ縲・)
+        print(f"エラー: プロファイル '{profile_key}' が見つかりません。")
         return
 
     p = config[profile_key]
-    print(f"=== 繝｢繝ｼ繝蛾幕蟋・ {p['profile_name']} ({profile_key}) ===")
+    print(f"=== モード開始: {p['profile_name']} ({profile_key}) ===")
     
     try:
-        # 1. 隱崎ｨｼ縺ｮ蜿門ｾ・(Tasks縺ｨYouTube繧貞・髮｢縺励※繧ｨ繝ｩ繝ｼ蝗樣∩)
+        # 1. 認証の取得 (TasksとYouTubeを分離してエラー回避)
         tasks_token = f"tokens/tasks_{profile_key}.pickle"
         youtube_token = f"tokens/youtube_{profile_key}.pickle"
         
-        # Tasks縺ｮ隱崎ｨｼ・医Γ繝ｼ繝ｫ繧｢繧ｫ繧ｦ繝ｳ繝茨ｼ・
+        # Tasksの認証（メールアカウント）
         tasks_service = get_authenticated_service('tasks', 'v1', SCOPES_TASKS, tasks_token)
-        print("笨・Google Tasks 縺ｮ隱崎ｨｼ縺ｫ謌仙粥縺励∪縺励◆縲・)
+        print("✅ Google Tasks の認証に成功しました。")
         
-        # YouTube縺ｮ隱崎ｨｼ・医ヶ繝ｩ繝ｳ繝峨い繧ｫ繧ｦ繝ｳ繝茨ｼ・
+        # YouTubeの認証（ブランドアカウント）
         youtube_service = get_authenticated_service('youtube', 'v3', SCOPES_YOUTUBE, youtube_token)
         
-        # 2. 繝√Ε繝ｳ繝阪Ν遒ｺ隱・(繝壹ャ繝医メ繝｣繝ｳ繝阪Ν遲峨〒ID縺檎ｩｺ縺ｮ蝣ｴ蜷医・荳隕ｧ繧定｡ｨ遉ｺ縺吶ｋ)
+        # 2. チャンネル確認 (ペットチャンネル等でIDが空の場合は一覧を表示する)
         if not p['channel_id']:
-            print("\n--- 迴ｾ蝨ｨ縺ｮYouTube繝√Ε繝ｳ繝阪Ν繝ｪ繧ｹ繝・---")
+            print("\n--- 現在のYouTubeチャンネルリスト ---")
             results = youtube_service.channels().list(mine=True, part='snippet').execute()
             for c in results.get('items', []):
-                print(f"蜷榊燕: {c['snippet']['title']}, ID: {c['id']}")
-            print("\n窶ｻ豁｣縺励＞ID繧・config.json 縺ｮ channel_id 縺ｫ險伜・縺励※縺上□縺輔＞縲・)
+                print(f"名前: {c['snippet']['title']}, ID: {c['id']}")
+            print("\n※正しいIDを config.json の channel_id に記入してください。")
             return
 
         if not check_youtube_channel(youtube_service, p['channel_id']):
-            print("荳ｭ豁｢縺励∪縺吶よｭ｣縺励＞繧｢繧ｫ繧ｦ繝ｳ繝医〒繝ｭ繧ｰ繧､繝ｳ縺礼峩縺励※縺上□縺輔＞縲・)
+            print("中止します。正しいアカウントでログインし直してください。")
             return
 
-        # 3. 繧ｿ繧ｹ繧ｯ蜿門ｾ・
+        # 3. タスク取得
         task = fetch_latest_task(tasks_service, p['task_list_name'])
         if not task:
-            print(f"繧ｨ繝ｩ繝ｼ: ToDo繝ｪ繧ｹ繝・'{p['task_list_name']}' 縺ｫ譛ｪ螳御ｺ・・繧ｿ繧ｹ繧ｯ縺瑚ｦ九▽縺九ｊ縺ｾ縺帙ｓ縺ｧ縺励◆縲・)
+            print(f"エラー: ToDoリスト '{p['task_list_name']}' に未完了のタスクが見つかりませんでした。")
             return
         
-        print(f"繧ｿ繧ｹ繧ｯ蜿門ｾ玲・蜉・ {task['title']}")
+        print(f"タスク取得成功: {task['title']}")
         
-        # 4. 蜍慕判逕滓・
+        # 4. 動画生成
         video_file, _ = await generate_video.make_short_video(
             task['notes'], 
             'bg.jpg', 
@@ -332,18 +332,17 @@ async def main():
             voice=p['voice']
         )
         
-        # 5. YouTube繧｢繝・・繝ｭ繝ｼ繝・
+        # 5. YouTubeアップロード
         upload_to_youtube(youtube_service, video_file, task['title'], task['notes'], p['tags'])
         
-        print("\n=== 縺吶∋縺ｦ縺ｮ蟾･遞九′豁｣蟶ｸ縺ｫ螳御ｺ・＠縺ｾ縺励◆・・===")
+        print("\n=== すべての工程が正常に完了しました！ ===")
 
     except Exception as e:
-        print(f"繧ｨ繝ｩ繝ｼ縺檎匱逕溘＠縺ｾ縺励◆: {e}")
-        # 隧ｳ邏ｰ縺ｪ繧ｨ繝ｩ繝ｼ諠・ｱ繧貞・縺吶◆繧√↓縲√せ繧ｿ繝・け繝医Ξ繝ｼ繧ｹ繧定｡ｨ遉ｺ
+        print(f"エラーが発生しました: {e}")
+        # 詳細なエラー情報を出すために、スタックトレースを表示
         import traceback
         traceback.print_exc()
 
 if __name__ == "__main__":
     import asyncio
     asyncio.run(main())
-
