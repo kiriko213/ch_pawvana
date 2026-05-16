@@ -6,7 +6,7 @@
         "bgm": "bgm.mp3",
         "tags": "#Pawvana #Pets #Cute #Animals #CatChannel #Shorts",
         "task_list_name": "My Tasks",
-        "pexels_api_key": "3OfpfSdk7zLAplKzkkaWa5K4ldXHiomdAyhNcxulIS6T5BMDaHNbGtxR",
+        "pexels_api_key": "REDACTED_API_KEY",
         "gemini_api_key": "AIzaSyAoDheUf6CzzGUcfgzZqOIDiJBdk6-OcQw",
         "target_animal": "cute pet",
         "forbidden_animals": ["hamster", "bird"]
