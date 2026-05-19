@@ -4,9 +4,9 @@ import datetime
 import re
 
 def generate_viral_script(topic="health", channel_context="", api_key=None, feedback=None, language="en"):
-    \"\"\"
+    """
     実行役: 動画の台本を生成する。
-    \"\"\"
+    """
     if api_key:
         genai.configure(api_key=api_key)
     
@@ -14,14 +14,14 @@ def generate_viral_script(topic="health", channel_context="", api_key=None, feed
     
     feedback_section = ""
     if feedback:
-        feedback_section = f\"\"\"
+        feedback_section = f"""
         === FEEDBACK FROM AUDITOR/SYSTEM (PLEASE FIX THESE POINTS) ===
         {feedback}
         ==============================================================
-        \"\"\"
+        """
  
     if language == "ja":
-        prompt = f\"\"\"
+        prompt = f"""
         あなたはプロのYouTubeショート動画プロデューサーです。日本の視聴者向けに。
         以下のトピックについて、15秒のバイラルな台本を作成してください。
         
@@ -45,9 +45,9 @@ def generate_viral_script(topic="health", channel_context="", api_key=None, feed
         Content:
         [強力なフック質問文]？ [意外な事実のコア文1]。 [雑学の納得コア文2]。 [コメント誘導または共感の結び文]！
         PexelsKeyword: [映像検索用の英語キーワード。動物や地理のテーマを必ず含めること]
-        \"\"\"
+        """
     else:
-        prompt = f\"\"\"
+        prompt = f"""
         You are a professional YouTube Shorts producer for an English channel.
         Create an extremely fast, high-impact 15-second viral script.
         
@@ -73,22 +73,30 @@ def generate_viral_script(topic="health", channel_context="", api_key=None, feed
         Content:
         [Short Hook Question]? [Punchy Core Sentence 1]. [Punchy Core Sentence 2]. [Comment-triggering Closing Sentence]!
         PexelsKeyword: [English keyword for video search. Must include the core theme]
-        \"\"\"
+        """
     
     try:
         response = model.generate_content(prompt)
         text = response.text
         
-        title_match = re.search(r"Title:\\s*(.*)", text)
+        # Titleの抽出（大文字小文字を区別せず、最悪の場合のフォールバックを徹底）
+        title_match = re.search(r"(?:Title|TITLE):\s*(.*)", text)
         title = title_match.group(1).strip() if title_match else f"Insights on {topic}"
         
-        content_match = re.search(r"Content:\\s*(.*)", text, re.DOTALL)
-        content = content_match.group(1).strip() if content_match else text
-        
-        keyword_match = re.search(r"PexelsKeyword:\\s*(.*)", text)
-        keyword = "animal"
+        # Contentの抽出（Content: から PexelsKeyword: までの間を正確に切り出す）
+        content_match = re.search(r"(?:Content|CONTENT):\s*(.*?)(?=(?:PexelsKeyword|PEXELS|\Z))", text, re.DOTALL)
+        if content_match and content_match.group(1).strip():
+            content = content_match.group(1).strip()
+        else:
+            # 抽出失敗時の3秒フォールバックを阻止、テキスト全体からゴミを削って台本とする
+            content = text.replace(f"Title: {title}", "").strip()
+
+        # PexelsKeywordの抽出
+        keyword_match = re.search(r"(?:PexelsKeyword|Pexels|KEYWORDS):\s*(.*)", text, re.IGNORECASE)
+        keyword = "nature" if language != "ja" else "animal"
         if keyword_match:
             keyword = keyword_match.group(1).strip()
+            # 台本側に入り込んだキーワード行を完全に消去
             content = content.replace(keyword_match.group(0), "").strip()
             
         return title, content, keyword
