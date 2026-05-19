@@ -1,9 +1,9 @@
-﻿name: AI Shorts Post (Pawvana)
+name: AI Shorts Post (Pawvana)
 
 on:
   schedule:
-    # 繧｢繝｡繝ｪ繧ｫ譚ｱ驛ｨ譎る俣 08:00, 15:00, 20:00 (UTC 13:00, 20:00, 01:00)
-    - cron: '0 1,13,20 * * *'
+    # アメリカ東部時間 08:00, 15:00, 20:00 (UTC 13:00, 20:00, 01:00)
+    - cron: '15 23,8,12 * * *'
   workflow_dispatch:
 
 permissions:
@@ -43,4 +43,5 @@ jobs:
         PYTHONUNBUFFERED: "1"
       run: |
         python auto_main.py
+
 
