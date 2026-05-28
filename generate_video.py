@@ -159,7 +159,7 @@ async def fetch_best_visual(query, api_key, target_animal="dog", forbidden_anima
     return None, None
 
 async def assemble_video_professional(script, asset_path, asset_type, bgm_path, output_filename, voice="ja-JP-NanamiNeural", topic="", work_dir="."):
-    raw_sections = [s.strip() for s in re.split(r'[。！!？\?\n]', script) if s.strip()]
+    raw_sections = [s.strip() for s in re.split(r'(?<=[。！!？\?\n])', script) if s.strip()]
     if len(raw_sections) > 3:
         n = len(raw_sections)
         sections = [" ".join(raw_sections[:n//2]), " ".join(raw_sections[n//2:])]

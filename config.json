@@ -1,4 +1,4 @@
-﻿{
+{
     "pawvana": {
         "profile_name": "Pawvana",
         "channel_id": "UCHkew2QJilPAicjNBbY5hcw",
@@ -6,10 +6,12 @@
         "bgm": "bgm.mp3",
         "tags": "#Pawvana #Pets #Cute #Animals #CatChannel #Shorts",
         "task_list_name": "My Tasks",
-        "pexels_api_key": "REDACTED_API_KEY",
+        "pexels_api_key": "3OfpfSdk7zLAplKzkkaWa5K4ldXHiomdAyhNcxulIS6T5BMDaHNbGtxR",
         "gemini_api_key": "REDACTED_API_KEY",
         "target_animal": "cute pet",
-        "forbidden_animals": ["hamster", "bird"]
+        "forbidden_animals": ["hamster", "bird"],
+        "google_account": "kiriko435@gmail.com",
+        "gemini_api_key_env_name": "GEMINI_API_KEY_PAWVANA"
     }
 }
 

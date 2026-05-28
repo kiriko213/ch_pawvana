@@ -120,7 +120,7 @@ async def run_auto_post(work_dir=".", topic=None):
         
         title, script_content, search_query = "", "", ""
         current_feedback = None
-        max_attempts = 5
+        max_attempts = 2
         
         channel_auditor_path = os.path.join(work_dir, "auditor.py")
         has_auditor = os.path.exists(channel_auditor_path)
