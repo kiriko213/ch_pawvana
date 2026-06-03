@@ -35,8 +35,17 @@ def get_authenticated_service(api_name, api_version, scopes, token_path=None, en
     """汎用的な認証・サービス取得関数 (ローカルファイル & 環境変数の両方に対応)"""
     creds = None
     
-    # 1. 環境変数からのBase64トークン読み込み（GlobeGuess等のPickle方式）
-    if env_token_key and os.environ.get(env_token_key):
+    # 1. ローカルファイルからの読み込み (最優先)
+    if token_path and os.path.exists(token_path):
+        try:
+            with open(token_path, 'rb') as token:
+                creds = pickle.load(token)
+                print("[INFO] ローカルのトークンファイルを読み込みました。")
+        except Exception as e:
+            print(f"[ERROR] ローカルのトークンファイル読み込み失敗: {e}")
+
+    # 2. 環境変数からのBase64トークン読み込み（GlobeGuess等のPickle方式）
+    if not creds and env_token_key and os.environ.get(env_token_key):
         try:
             print(f"[DEBUG] 環境変数 {env_token_key} からBase64トークンを復元します。")
             token_data = base64.b64decode(os.environ.get(env_token_key))
@@ -45,7 +54,7 @@ def get_authenticated_service(api_name, api_version, scopes, token_path=None, en
         except Exception as e:
             print(f"[ERROR] Base64トークン復元失敗: {e}")
 
-    # 2. 個別環境変数からの認証（dogs_jp, hamsters_jp, pets, pets_jp用）
+    # 3. 個別環境変数からの認証（dogs_jp, hamsters_jp, pets, pets_jp用）
     if not creds and profile_key:
         client_id = os.environ.get(f"YOUTUBE_CLIENT_ID_{profile_key.upper()}") or os.environ.get("YOUTUBE_CLIENT_ID")
         client_secret = os.environ.get(f"YOUTUBE_CLIENT_SECRET_{profile_key.upper()}") or os.environ.get("YOUTUBE_CLIENT_SECRET")
@@ -69,12 +78,6 @@ def get_authenticated_service(api_name, api_version, scopes, token_path=None, en
             print("AUTH: Credentials object created successfully.")
         else:
             print(f"AUTH_WARN: Missing env vars for profile {profile_key}")
-
-    # 3. ローカルファイルからの読み込み
-    if not creds and token_path and os.path.exists(token_path):
-        with open(token_path, 'rb') as token:
-            creds = pickle.load(token)
-            print("[INFO] ローカルのトークンファイルを読み込みました。")
             
     # 認証情報の自動更新（ローカル & クラウド共通）
     if creds:
