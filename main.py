@@ -36,7 +36,10 @@ def get_authenticated_service(api_name, api_version, scopes, token_path=None, en
     creds = None
     
     # 1. ローカルファイルからの読み込み (最優先)
-    if token_path and os.path.exists(token_path):
+    # ローカルのトークンファイルが存在する場合は、環境変数(Secrets)の読み込みを完全にバイパス（スキップ）する
+    has_local_token = token_path and os.path.exists(token_path)
+    
+    if has_local_token:
         try:
             with open(token_path, 'rb') as token:
                 creds = pickle.load(token)
@@ -44,8 +47,8 @@ def get_authenticated_service(api_name, api_version, scopes, token_path=None, en
         except Exception as e:
             print(f"[ERROR] ローカルのトークンファイル読み込み失敗: {e}")
 
-    # 2. 環境変数からのBase64トークン読み込み（GlobeGuess等のPickle方式）
-    if not creds and env_token_key and os.environ.get(env_token_key):
+    # 2. 環境変数からのBase64トークン読み込み（ローカルファイルがない場合のみ）
+    if not has_local_token and not creds and env_token_key and os.environ.get(env_token_key):
         try:
             print(f"[DEBUG] 環境変数 {env_token_key} からBase64トークンを復元します。")
             token_data = base64.b64decode(os.environ.get(env_token_key))
@@ -54,8 +57,8 @@ def get_authenticated_service(api_name, api_version, scopes, token_path=None, en
         except Exception as e:
             print(f"[ERROR] Base64トークン復元失敗: {e}")
 
-    # 3. 個別環境変数からの認証（dogs_jp, hamsters_jp, pets, pets_jp用）
-    if not creds and profile_key:
+    # 3. 個別環境変数からの認証（ローカルファイルがない場合のみ）
+    if not has_local_token and not creds and profile_key:
         client_id = os.environ.get(f"YOUTUBE_CLIENT_ID_{profile_key.upper()}") or os.environ.get("YOUTUBE_CLIENT_ID")
         client_secret = os.environ.get(f"YOUTUBE_CLIENT_SECRET_{profile_key.upper()}") or os.environ.get("YOUTUBE_CLIENT_SECRET")
         refresh_token = os.environ.get(f"YOUTUBE_REFRESH_TOKEN_{profile_key.upper()}")
