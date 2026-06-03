@@ -19,6 +19,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Decrypt YouTube token
+      env:
+        PAWVANA_PICKLE_PASSWORD: ${{ secrets.PAWVANA_PICKLE_PASSWORD }}
+      run: |
+        mkdir -p tokens
+        gpg --quiet --batch --yes --decrypt --passphrase "$PAWVANA_PICKLE_PASSWORD" -o tokens/youtube.pickle tokens/youtube.pickle.gpg
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
