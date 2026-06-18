@@ -22,7 +22,7 @@ SCOPES_TASKS = [
     'openid'
 ]
 SCOPES_YOUTUBE = [
-    'https://www.googleapis.com/auth/youtube'
+    'https://www.googleapis.com/auth/youtube.upload'
 ]
 
 def load_config(work_dir="."):
@@ -249,7 +249,7 @@ def upload_to_youtube(service, video_file, title, description, tags):
             'categoryId': '22'
         },
         'status': {
-            'privacyStatus': 'private',
+            'privacyStatus': 'public',
             'selfDeclaredMadeForKids': False
         }
     }
@@ -280,8 +280,8 @@ def upload_to_youtube(service, video_file, title, description, tags):
 
 async def main():
     # 引数からプロファイルを取得 (デフォルトはmacro)
+    profile_key = sys.argv[1] if len(sys.argv) > 1 else 'macro'
     config = load_config()
-    profile_key = list(config.keys())[0] if config else 'macro'
     
     if profile_key not in config:
         print(f"エラー: プロファイル '{profile_key}' が見つかりません。")
