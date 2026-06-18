@@ -1,4 +1,5 @@
 {
+  "pawvana": {
   "channel_id": "UCHkew2QJilPAicjNBbY5hcw",
   "config_key": "pawvana",
   "profile_name": "Pawvana",
@@ -32,4 +33,5 @@
   "bg_pool_dir": "bg_pool/animals",
   "time_lock_minutes": 10,
   "guard_system_version": "v2"
+  }
 }
