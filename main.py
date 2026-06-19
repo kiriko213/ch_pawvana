@@ -22,6 +22,7 @@ SCOPES_TASKS = [
     'openid'
 ]
 SCOPES_YOUTUBE = [
+    'https://www.googleapis.com/auth/youtube',
     'https://www.googleapis.com/auth/youtube.upload'
 ]
 
