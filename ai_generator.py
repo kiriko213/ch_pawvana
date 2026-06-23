@@ -28,6 +28,10 @@ def generate_viral_script(topic="health", channel_context="", api_key=None, feed
         if credentials:
             genai.configure(credentials=credentials)
         else:
+            if api_key:
+                print(f"[DEBUG_AUTH] generate_viral_script api_key starts with: {api_key[:4]}... (length: {len(api_key)})")
+            else:
+                print("[DEBUG_AUTH] generate_viral_script api_key is None or empty")
             genai.configure(api_key=api_key)
 
     model = genai.GenerativeModel('gemini-2.5-flash')
@@ -125,6 +129,10 @@ def generate_viral_scripts_batch(topic="health", api_key=None, batch_size=5, lan
         if credentials:
             genai.configure(credentials=credentials)
         else:
+            if api_key:
+                print(f"[DEBUG_AUTH] generate_viral_scripts_batch api_key starts with: {api_key[:4]}... (length: {len(api_key)})")
+            else:
+                print("[DEBUG_AUTH] generate_viral_scripts_batch api_key is None or empty")
             genai.configure(api_key=api_key)
 
     # JSONレスポンス出力を強制するための設定
