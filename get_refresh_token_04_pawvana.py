@@ -19,7 +19,7 @@ AUTH_URL = (
     "?response_type=code"
     f"&client_id={CLIENT_ID}"
     f"&redirect_uri={REDIRECT_URI}"
-    "&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fyoutube.upload"
+    "&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fyoutube%20https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fyoutube.upload"
     "&access_type=offline"
     "&prompt=consent"
 )
