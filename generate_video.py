@@ -211,22 +211,34 @@ async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
         except Exception:
             pass
             
-    # 0. 直近3本で使用された背景動画のIDをロードして重複をブロック
+    # 0. キャッシュファイルと履歴から使用済みビデオIDをロードして重複をブロック
     used_visual_ids = set()
+    cache_path = os.path.join(work_dir, "script_cache.json")
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f_cache:
+                cache_data = json.load(f_cache)
+                for item in cache_data.get("items", []):
+                    # status == 'uploaded' のアイテムから使用済みビデオIDを取得
+                    if item.get("status") == "uploaded":
+                        v_ids = item.get("video_ids", [])
+                        for vid in v_ids:
+                            used_visual_ids.add(int(vid))
+        except Exception as ex_cache:
+            print(f"[PEXELS_GUARD_WARN] Failed to read script_cache.json: {ex_cache}")
+
     history_path = os.path.join(work_dir, "generated_history.json")
     if os.path.exists(history_path):
         try:
             with open(history_path, "r", encoding="utf-8") as f_hist:
                 history_data = json.load(f_hist)
-                # 直近3本分を対象とする
-                recent_entries = history_data[-3:] if len(history_data) >= 3 else history_data
-                for entry in recent_entries:
+                for entry in history_data:
                     v_ids = entry.get("video_ids", [])
                     for vid in v_ids:
                         used_visual_ids.add(int(vid))
-            print(f"[PEXELS_GUARD] Loaded recently used visual IDs to avoid: {used_visual_ids}")
         except Exception as ex_hist:
             print(f"[WARN] Failed to read generated_history.json in fetch_best_visual: {ex_hist}")
+    print(f"[PEXELS_GUARD] Loaded recently used visual IDs to avoid: {used_visual_ids}")
 
     scene_queries = [q.strip() for q in query.split(',')] if ',' in query else [query]
     downloaded_paths = []
@@ -262,7 +274,7 @@ async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
     is_overwritten = False
     selected_pool = []
     
-    if "dogs_jp" in combined_ctx or "01_dogs_jp" in combined_ctx or "06_dogs" in combined_ctx:
+    if "dogs_jp" in combined_ctx or "ch_dogs_en" in combined_ctx or "dogs_en" in combined_ctx or "01_dogs_jp" in combined_ctx or "06_dogs" in combined_ctx:
         selected_pool = dog_pool
         is_overwritten = True
     elif "pets_jp" in combined_ctx or "02_pets_jp" in combined_ctx or "pawvana" in combined_ctx:
@@ -519,7 +531,7 @@ async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
         # 必要な本数分、シャッフルされたリストから順に割り当ててダウンロード
         if len(valid_candidates) >= required_count:
             for idx in range(required_count):
-                selected_video, selected_files = valid_candidates[idx]
+                selected_video, selected_files, qsm_score = valid_candidates[idx]
                 video_id = selected_video.get('id')
                 best_file = selected_files[0]
                 dest_path = os.path.join(work_dir, f"temp_bg_{idx}_{video_id}.mp4")
@@ -559,8 +571,19 @@ async def resolve_local_visual_fallback(profile_key=".", work_dir="."):
     assets_dir = os.path.join(work_dir, "assets")
     fallback_path = os.path.join(work_dir, "temp_bg_fallback.mp4")
     
-    # 履歴ファイルから使用済みローカルアセットを収集
+    # 履歴ファイルおよびキャッシュから使用済みローカルアセットを収集
     used_filenames = set()
+    cache_path = os.path.join(work_dir, "script_cache.json")
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f_cache:
+                cache_data = json.load(f_cache)
+                for item in cache_data.get("items", []):
+                    for fn in item.get("local_filenames", []):
+                        used_filenames.add(fn)
+        except Exception:
+            pass
+
     history_path = os.path.join(work_dir, "generated_history.json")
     if os.path.exists(history_path):
         try:
@@ -775,6 +798,17 @@ def scan_local_pool_for_topic(topic, work_dir="."):
     auto_main.py から同期呼び出しされる Level 1 & 2 ローカルプール探索のエントリポイント。
     """
     used_filenames = set()
+    cache_path = os.path.join(work_dir, "script_cache.json")
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f_cache:
+                cache_data = json.load(f_cache)
+                for item in cache_data.get("items", []):
+                    for fn in item.get("local_filenames", []):
+                        used_filenames.add(fn)
+        except Exception:
+            pass
+
     history_path = os.path.join(work_dir, "generated_history.json")
     if os.path.exists(history_path):
         try:

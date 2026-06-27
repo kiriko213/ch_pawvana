@@ -306,13 +306,19 @@ class GrowthIntelligenceEngine:
 
         # 出現回数順にソートし上位3件を返す
         results = []
-        for template, count in pattern_hits.most_common(3):
+        for template, count in pattern_hits.most_common():
+            # 永久防止策: {Topic} を含まないパターンは勝ちパターンから除外する
+            if "{Topic}" not in template:
+                print(f"[GI_PATTERN_GUARD] Skipping invalid winning title pattern without {{Topic}}: '{template}'")
+                continue
             results.append({
                 "pattern": template,
                 "frequency": count,
                 "example": pattern_examples.get(template, ""),
                 "source": "title_curiosity_patterns"
             })
+            if len(results) >= 3:
+                break
 
         print(f"[GI_PATTERN] Extracted {len(results)} winning title patterns.")
         return results
@@ -320,20 +326,28 @@ class GrowthIntelligenceEngine:
     def _templatize_title(self, title, matched_pattern):
         """
         タイトルを汎用テンプレートに変換する。
-        数字 → {Number}, 固有名詞的な海洋生物名 → {Topic}
+        数字 → {Number}, 固有名詞的な海洋生物名/犬関連名詞 → {Topic}
         """
         template = title
         # 数字をプレースホルダに置換
         template = re.sub(r'\d+', '{Number}', template)
-        # 既知の海洋生物名をトピックプレースホルダに置換
-        marine_nouns = [
+        # 既知の名詞（海洋生物および犬）をトピックプレースホルダに置換
+        niche_nouns = [
+            # Marine (Aquatic)
             "anglerfish", "coral", "jellyfish", "shark", "whale", "octopus",
             "squid", "dolphin", "turtle", "reef", "sponge", "shrimp",
             "crab", "lobster", "stingray", "seal", "mariana", "trench",
-            "abyss", "brine", "hadal"
+            "abyss", "brine", "hadal",
+            # Dog (Canine)
+            "dog", "dogs", "puppy", "puppies", "canine", "canines", "chihuahua",
+            "poodle", "retriever", "corgi", "pomeranian", "bulldog", "shiba",
+            "nose", "noses", "bark", "barks", "barking", "tail", "tails", "wag",
+            "wagging", "hearing", "ear", "ears", "gaze", "eye", "eyes", "mouth",
+            "lick", "licks", "bow", "bows", "communication", "memory", "dream",
+            "dreams", "dreaming", "sleep", "sleeping", "intelligence", "brain"
         ]
-        for noun in marine_nouns:
-            pattern_noun = re.compile(re.escape(noun), re.IGNORECASE)
+        for noun in niche_nouns:
+            pattern_noun = re.compile(r'\b' + re.escape(noun) + r'\b', re.IGNORECASE)
             if pattern_noun.search(template):
                 template = pattern_noun.sub('{Topic}', template)
                 break  # 1つだけ置換

@@ -9,6 +9,7 @@
     "short_name": "en-US-GuyNeural",
     "gender": "Male"
   },
+  "voice": "en-US-GuyNeural",
   "video_settings": {
     "duration": 15,
     "aspect_ratio": "9:16",

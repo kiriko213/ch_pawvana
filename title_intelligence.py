@@ -52,35 +52,65 @@ class TitleIntelligenceEngine:
             winning_patterns = self.default_patterns
             
         recent_titles = []
-        # cache_data から直近のタイトルを収集
+        # cache_data から直近の uploaded タイトルを収集
         for item in reversed(cache_data.get("items", [])):
-            t = item.get("title")
-            if t:
-                recent_titles.append(t)
+            if item.get("status") == "uploaded":
+                t = item.get("title")
+                if t and t not in recent_titles:
+                    recent_titles.append(t)
             if len(recent_titles) >= 10:
                 break
                 
         # 2. 候補生成 (Winning Patterns + Original)
+        try:
+            from concept_guard import get_uploaded_concepts, is_concept_duplicated
+            uploaded_concepts = get_uploaded_concepts(self.cache_path)
+        except Exception:
+            uploaded_concepts = set()
+
         candidates_set = set()
         if original_title:
-            candidates_set.add(original_title.strip())
+            orig_clean = original_title.strip()
+            is_dup_orig, overlap_orig = is_concept_duplicated(orig_clean, uploaded_concepts) if uploaded_concepts else (False, set())
+            if not is_dup_orig:
+                candidates_set.add(orig_clean)
+            else:
+                print(f"[TI_GUARD] Excluding original title '{orig_clean}' due to semantic concept overlap: {overlap_orig}")
             
         # パターンをトピック名で展開
         topic_clean = topic.strip().title()
         for pat in winning_patterns:
+            # プレースホルダーガード：{Topic} が含まれていない場合は無関係なタイトル重複の原因になるためスキップ
+            if "{Topic}" not in pat:
+                print(f"[TI_GUARD] Skipping invalid winning pattern without {{Topic}} in discover_and_score_titles: '{pat}'")
+                continue
             # プレースホルダーを置換
             # {Topic} や {topic} などを大文字小文字対応で置換
             cand = pat.replace("{Topic}", topic_clean).replace("{topic}", topic_clean)
             cand = re.sub(r'\{Topic\}', topic_clean, cand, flags=re.IGNORECASE)
-            candidates_set.add(cand.strip())
+            cand_clean = cand.strip()
+            
+            is_dup_cand, overlap_cand = is_concept_duplicated(cand_clean, uploaded_concepts) if uploaded_concepts else (False, set())
+            if not is_dup_cand:
+                candidates_set.add(cand_clean)
+            else:
+                print(f"[TI_GUARD] Excluding template candidate '{cand_clean}' due to semantic concept overlap: {overlap_cand}")
             
         # 最低3件の候補を確保するためのフォールバック
         if len(candidates_set) < 3:
             for pat in self.default_patterns:
                 cand = pat.replace("{Topic}", topic_clean)
-                candidates_set.add(cand.strip())
+                cand_clean = cand.strip()
+                is_dup_def, overlap_def = is_concept_duplicated(cand_clean, uploaded_concepts) if uploaded_concepts else (False, set())
+                if not is_dup_def:
+                    candidates_set.add(cand_clean)
                 if len(candidates_set) >= 3:
                     break
+                    
+        # もしすべての候補が重複で除外されてしまった場合、警告付きでオリジナルのタイトルを1つだけフォールバックしてクラッシュを防ぐ
+        if len(candidates_set) == 0 and original_title:
+            print(f"[TI_GUARD_WARN] All title candidates were excluded by concept guard. Falling back to original title: '{original_title}'")
+            candidates_set.add(original_title.strip())
                     
         # 3. スコアリング
         scored_titles = []
@@ -145,7 +175,7 @@ class TitleIntelligenceEngine:
 
         # --- 3. keyword_score (最大 20点) ---
         if boost_keywords is None:
-            boost_keywords = ["deep sea", "ocean", "shark", "jellyfish", "bioluminescent", "giant", "mysterious"]
+            boost_keywords = ["deep sea", "ocean", "dog", "puppy", "pet", "bark", "communication", "behavior", "mysterious"]
         keyword_score = 0.0
         for keyword in boost_keywords:
             if keyword.lower() in title_lower:
@@ -191,27 +221,60 @@ class TitleIntelligenceEngine:
         cache_data = self._load_json(self.cache_path)
         recent_titles = []
         for item in reversed(cache_data.get("items", [])):
-            t = item.get("title")
-            if t:
-                recent_titles.append(t)
+            if item.get("status") == "uploaded":
+                t = item.get("title")
+                if t and t not in recent_titles:
+                    recent_titles.append(t)
             if len(recent_titles) >= 10:
                 break
 
         # 候補収集
-        candidates_set = {original_title.strip()}
+        try:
+            from concept_guard import get_uploaded_concepts, is_concept_duplicated
+            uploaded_concepts = get_uploaded_concepts(self.cache_path)
+        except Exception:
+            uploaded_concepts = set()
+
+        candidates_set = set()
+        
+        orig_clean = original_title.strip()
+        is_dup_orig, overlap_orig = is_concept_duplicated(orig_clean, uploaded_concepts) if uploaded_concepts else (False, set())
+        if not is_dup_orig:
+            candidates_set.add(orig_clean)
+        else:
+            print(f"[TI_GUARD] Excluding original title '{orig_clean}' due to semantic concept overlap: {overlap_orig}")
+
         topic_clean = topic.strip().title()
         for pat in winning_patterns:
+            # プレースホルダーガード：{Topic} が含まれていない場合は無関係なタイトル重複の原因になるためスキップ
+            if "{Topic}" not in pat:
+                print(f"[TI_GUARD] Skipping invalid winning pattern without {{Topic}} in select_best_title: '{pat}'")
+                continue
             cand = pat.replace("{Topic}", topic_clean).replace("{topic}", topic_clean)
             cand = re.sub(r'\{Topic\}', topic_clean, cand, flags=re.IGNORECASE)
-            candidates_set.add(cand.strip())
+            cand_clean = cand.strip()
+            
+            is_dup_cand, overlap_cand = is_concept_duplicated(cand_clean, uploaded_concepts) if uploaded_concepts else (False, set())
+            if not is_dup_cand:
+                candidates_set.add(cand_clean)
+            else:
+                print(f"[TI_GUARD] Excluding template candidate '{cand_clean}' due to semantic concept overlap: {overlap_cand}")
 
         # 最小数確保
         if len(candidates_set) < 3:
             for pat in self.default_patterns:
                 cand = pat.replace("{Topic}", topic_clean)
-                candidates_set.add(cand.strip())
+                cand_clean = cand.strip()
+                is_dup_def, overlap_def = is_concept_duplicated(cand_clean, uploaded_concepts) if uploaded_concepts else (False, set())
+                if not is_dup_def:
+                    candidates_set.add(cand_clean)
                 if len(candidates_set) >= 3:
                     break
+                    
+        # もしすべての候補が重複で除外されてしまった場合、警告付きでオリジナルのタイトルを1つだけフォールバックしてクラッシュを防ぐ
+        if len(candidates_set) == 0 and original_title:
+            print(f"[TI_GUARD_WARN] All title candidates were excluded by concept guard in select_best_title. Falling back to original title: '{original_title}'")
+            candidates_set.add(original_title.strip())
 
         # スコア算出
         scored_titles = []

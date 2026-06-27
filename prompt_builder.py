@@ -45,9 +45,9 @@ class PromptBuilder:
 
         return {"version": 0, "winning_topics": [], "losing_topics": [], "winning_title_patterns": [], "winning_hook_patterns": []}
 
-    def load_recent_topics(self, limit=10):
+    def load_recent_topics(self, limit=50):
         """
-        重複防止のため、script_cache.json から最近生成したトピックを読み込む。
+        重複防止のため、script_cache.json から最近投稿された（uploaded）トピックを読み込む。
         """
         if os.path.exists(self.cache_path):
             try:
@@ -56,14 +56,15 @@ class PromptBuilder:
                     items = data.get("items", [])
                     topics = []
                     for item in reversed(items):
-                        topic = item.get("topic")
-                        if topic and topic not in topics:
-                            topics.append(topic)
-                        if len(topics) >= limit:
-                            break
+                        if item.get("status") == "uploaded":
+                            topic = item.get("topic")
+                            if topic and topic not in topics:
+                                topics.append(topic)
+                            if len(topics) >= limit:
+                                break
                     return topics
             except Exception as e:
-                print(f"[PROMPT_WARN] Failed to read script cache: {e}")
+                print(f"[PROMPT_WARN] Failed to read script cache for topics: {e}")
         return []
 
     def load_topic_candidates(self):
@@ -94,10 +95,33 @@ class PromptBuilder:
                 print(f"[PROMPT_WARN] Failed to read title candidates: {e}")
         return []
 
+    def load_posted_video_titles(self, limit=100):
+        """
+        script_cache.json から status == 'uploaded' のタイトル一覧を取得する。
+        """
+        if os.path.exists(self.cache_path):
+            try:
+                with open(self.cache_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    items = data.get("items", [])
+                    titles = []
+                    for item in reversed(items):
+                        if item.get("status") == "uploaded":
+                            title = item.get("title")
+                            if title and title not in titles:
+                                titles.append(title)
+                            if len(titles) >= limit:
+                                break
+                    return titles
+            except Exception as e:
+                print(f"[PROMPT_WARN] Failed to read script cache for uploaded titles: {e}")
+        return []
+
     def build_augmented_prompt(self, base_topic, language="en", batch_size=5, reinforce_pct=None, explore_pct=None):
         """動的にパフォーマンスフィードバックと探索比率を注入した拡張メタプロンプトの構成"""
         feedback = self.load_feedback_dataset()
-        recent_topics = self.load_recent_topics(limit=10)
+        posted_titles = self.load_posted_video_titles(limit=100)
+        posted_topics = self.load_recent_topics(limit=50)
 
         # スコアのキー名が V2 (cgs) と V1 (score) で異なるため対応
         top_list = []
@@ -110,7 +134,7 @@ class PromptBuilder:
             score = t.get("cgs") if t.get("cgs") is not None else t.get("score", 0.0)
             under_list.append(f"- {t['topic']} (Category: {t.get('category', 'default')}, Score: {score})")
 
-        recent_list = [f"- {t}" for t in recent_topics]
+        posted_titles_list = [f"- {t}" for t in posted_titles]
 
         # パターンデータのフォーマット化
         title_patterns = []
@@ -155,8 +179,37 @@ class PromptBuilder:
             ■ 過去の低評価・不評トピック (以下のトピックの構成やテーマは避けてください):
             {os.linesep.join(under_list) if under_list else "- なし"}
 
-            ■ トピック重複防止 (以下の最近使用したトピックとはテーマや対象生物が非常に類似したものは絶対に避けてください):
-            {os.linesep.join(recent_list) if recent_list else "- なし"}
+            [POSTED_VIDEO_TITLES]
+            {os.linesep.join(posted_titles_list) if posted_titles_list else "- なし"}
+
+            [POSTED_TOPIC_HISTORY]
+            {os.linesep.join([f"- {tp}" for tp in posted_topics]) if posted_topics else "- なし"}
+
+            [Hard Anti-Repetition Rule]
+            The generated batch MUST avoid all concepts already covered by POSTED_VIDEO_TITLES and POSTED_TOPIC_HISTORY.
+            Do not generate:
+            * alternative wording of the same concept
+            * narrower version of the same concept
+            * broader version of the same concept
+            * different angle of the same concept
+            * different title for the same concept
+
+            Example:
+            If POSTED_VIDEO_TITLES or POSTED_TOPIC_HISTORY contains a dog tail communication video,
+            you must not generate any topic about:
+            tail signals,
+            tail wagging,
+            tail position,
+            body-language interpretation using tails,
+            or emotional meaning of tail movement.
+
+            If a generated topic is even remotely related to a concept already present in POSTED_VIDEO_TITLES or POSTED_TOPIC_HISTORY,
+            choose a completely different canine concept instead.
+
+            Favor concept diversity over title diversity.
+
+            Rule:
+            Never generate a topic, title, angle, hook, or concept that is semantically similar to any title in POSTED_VIDEO_TITLES or any topic in POSTED_TOPIC_HISTORY.
 
             【トレンド予測・新規テーマ候補】
             ■ 以下の予測スコアが高いテーマを、新規テーマ探索（Explore）の台本を作成する際の参考にしてください：
@@ -169,11 +222,58 @@ class PromptBuilder:
             【探索比率 (Exploration Ratio)】
             1. 生成する{batch_size}本のうち、約{reinforce_pct}% ({reinforce_count}本) は、「過去の高評価トピック」の強みや特徴を継承・再現したトピック（Reinforce）にしてください。
             2. 残りの約{explore_pct}% ({explore_count}本) は、「トレンド予測・新規テーマ候補」や、これまでに試したことのない新しいニッチな領域に関するテーマを探索的（Explore）に作成してください。
+
+            [Mandatory Topic Category Diversity]
+            Within a batch of 5 scripts, every script must belong to a different canine knowledge domain.
+            Do NOT generate multiple scripts from the same domain.
+
+            Examples of domains:
+            * behavior
+            * body language
+            * training
+            * intelligence
+            * health
+            * nutrition
+            * genetics
+            * evolution
+            * aging
+            * sleep
+            * vision
+            * hearing
+            * smell
+            * reproduction
+            * history of domestication
+
+            Bad batch example:
+            tail communication
+            ear language
+            eye signals
+            stress cues
+            play invitation
+            (all are body-language related)
+
+            Good batch example:
+            dog sleep
+            dog vision
+            dog nutrition
+            dog intelligence
+            dog aging
+            (all different domains)
+
+            If two topics could reasonably be grouped into the same canine concept category, only one may appear in the batch.
             """
         else:
             lang_instruction = f"""
             Generate exactly {batch_size} independent YouTube Shorts narration scripts about '{base_topic}' in English.
             Output MUST be a valid JSON array matching the schema below. No explanation, no markdown backticks, no markdown blocks.
+
+            [CHANNEL CONTENT POLICY - MANDATORY]
+            This channel covers GENERIC DOG CONTENT ONLY. You MUST follow these rules strictly:
+            ALLOWED topics: dog_facts, dog_behavior, dog_psychology, dog_training, dog_life_hacks, dog_owner_tips, dog_health_facts, dog_communication, dog_intelligence, amazing_dog_abilities.
+            FORBIDDEN topics: breed_specific_content, breed_comparisons, golden_retriever_specific, husky_specific, labrador_specific, puppy_specific_storytelling, individual_dog_profiles.
+            GOOD title examples: "Why Dogs Tilt Their Heads", "Why Dogs Sniff Everything", "Dog Body Language Secrets", "Amazing Dog Memory Facts", "Dog Owner Mistakes", "Dog Training Secrets".
+            BAD title examples: "Golden Retriever Puppy Facts", "Husky Puppy Secrets", "Labrador Puppy Training", "Story About a Specific Dog".
+            For the "search_query" field, use ONLY simple generic queries: "dog", "cute dog", "happy dog", "dog playing", "dog running", "dog owner", "dog training". Do NOT use breed-specific search terms.
 
             [Context & Adaptive Learning Parameters]
             Here are high-performing topics that generated strong audience engagement previously. Try to emulate their style, angle, or hooks:
@@ -182,9 +282,37 @@ class PromptBuilder:
             Here are underperforming topics. AVOID these exact concepts, styles, or categories:
             {os.linesep.join(under_list) if under_list else "- None"}
 
-            [Topic Diversity Guard (Repetition Protection)]
-            Do NOT generate scripts that are highly similar to or duplicate the following recently used topics:
-            {os.linesep.join(recent_list) if recent_list else "- None"}
+            [POSTED_VIDEO_TITLES]
+            {os.linesep.join(posted_titles_list) if posted_titles_list else "- None"}
+
+            [POSTED_TOPIC_HISTORY]
+            {os.linesep.join([f"- {tp}" for tp in posted_topics]) if posted_topics else "- None"}
+
+            [Hard Anti-Repetition Rule]
+            The generated batch MUST avoid all concepts already covered by POSTED_VIDEO_TITLES and POSTED_TOPIC_HISTORY.
+            Do not generate:
+            * alternative wording of the same concept
+            * narrower version of the same concept
+            * broader version of the same concept
+            * different angle of the same concept
+            * different title for the same concept
+
+            Example:
+            If POSTED_VIDEO_TITLES or POSTED_TOPIC_HISTORY contains a dog tail communication video,
+            you must not generate any topic about:
+            tail signals,
+            tail wagging,
+            tail position,
+            body-language interpretation using tails,
+            or emotional meaning of tail movement.
+
+            If a generated topic is even remotely related to a concept already present in POSTED_VIDEO_TITLES or POSTED_TOPIC_HISTORY,
+            choose a completely different canine concept instead.
+
+            Favor concept diversity over title diversity.
+
+            Rule:
+            Never generate a topic, title, angle, hook, or concept that is semantically similar to any title in POSTED_VIDEO_TITLES or any topic in POSTED_TOPIC_HISTORY.
 
             [Emerging Topic Opportunities (Future Success Candidates)]
             Here are predicted high-potential topics. You can explore these concepts for your exploration (Explore) scripts:
@@ -196,7 +324,69 @@ class PromptBuilder:
 
             [Exploration Ratio Rules]
             1. Approximately {reinforce_pct}% ({reinforce_count} scripts) MUST be reinforced topics (Reinforce), directly inspired by the successful angles/themes of the high-performing topics above.
-            2. The remaining {explore_pct}% ({explore_count} scripts) MUST be exploration topics (Explore), exploring completely new categories, species, or ocean phenomena not listed in the Top Topics, and utilizing the Emerging Topic Opportunities above.
+            2. The remaining {explore_pct}% ({explore_count} scripts) MUST be exploration topics (Explore), exploring completely new categories or dog phenomena not listed in the Top Topics, and utilizing the Emerging Topic Opportunities above.
+
+            [Mandatory Topic Category Diversity]
+            Within a batch of 5 scripts, every script must belong to a different canine knowledge domain.
+            Do NOT generate multiple scripts from the same domain.
+
+            Examples of domains:
+            * behavior
+            * body language
+            * training
+            * intelligence
+            * health
+            * nutrition
+            * genetics
+            * evolution
+            * aging
+            * sleep
+            * vision
+            * hearing
+            * smell
+            * reproduction
+            * history of domestication
+
+            Bad batch example:
+            tail communication
+            ear language
+            eye signals
+            stress cues
+            play invitation
+            (all are body-language related)
+
+            Good batch example:
+            dog sleep
+            dog vision
+            dog nutrition
+            dog intelligence
+            dog aging
+            (all different domains)
+
+            If two topics could reasonably be grouped into the same canine concept category, only one may appear in the batch.
+
+            [BATCH CONCEPT DIVERSITY — MANDATORY]
+            THIS IS THE MOST IMPORTANT RULE. VIOLATION WILL CAUSE THE ENTIRE BATCH TO BE REJECTED.
+            Every single script in this batch MUST cover a COMPLETELY DIFFERENT core concept. No overlap is allowed.
+            Strict rules:
+            1. Every script MUST belong to a DIFFERENT category (e.g., one about senses, one about behavior, one about cognition, one about health, one about training).
+            2. No two scripts may discuss the SAME dog behavior (e.g., if one is about tail wagging, NO other script may mention tails, wagging, or body language).
+            3. No two scripts may discuss the SAME psychological trait (e.g., if one is about memory, NO other script may mention memory, recall, remembering, or episodic memory).
+            4. No two scripts may discuss the SAME sensory topic (e.g., if one is about smell, NO other script may mention nose, scent, or sniffing).
+            5. No two scripts may discuss the SAME core concept even if worded differently.
+            6. Concept family exclusions — if one script covers ANY keyword in a family, NO other script may touch the same family:
+               - MEMORY: memory, episodic memory, remember, recall, recognition
+               - TAIL: tail, wag, wagging, body language, tail position
+               - BARK: bark, barking, vocalization, vocal communication, howl
+               - SLEEP: sleep, dreaming, dream, REM, nap
+               - SMELL: smell, nose, scent, sniff, olfactory
+               - HEARING: hearing, ears, sound, ultrasonic
+               - EMOTION: emotion, empathy, love, attachment, bonding
+               - INTELLIGENCE: intelligence, IQ, problem solving, cognition
+               - TRAINING: training, obedience, commands, tricks
+               - HEALTH: health, diet, nutrition, exercise, lifespan
+            7. If you are unsure whether two topics overlap, treat them as the SAME concept and pick a different one.
+            8. Maximize diversity: aim for the widest possible spread across unrelated dog science areas.
             """
 
         # CTR・フック最適化指令 (Phase 5C & Phase 5E Pattern Injection)

@@ -66,10 +66,24 @@ def save_script_cache(cache_path, cache_data):
 def recover_stale_and_failed_locks(cache_data):
     """
     1. processing状態で10分以上経過したアイテムをpendingに戻す (Stale Lock Recovery)
-    2. failed状態のアイテムをpendingに戻す (Failed Recovery)
+    2. failed状態のアイテムを最大3回までpendingに戻す (Failed Recovery)
+    コンセプトガード: 復帰前にアップロード済みコンセプトとの重複をチェックし、
+    重複アイテムは concept_blocked としてマークする。
     """
     now = datetime.datetime.utcnow()
     recovered_count = 0
+    
+    # コンセプトガード用: アップロード済みコンセプトを事前ロード
+    uploaded_concepts = set()
+    try:
+        from concept_guard import extract_concepts, get_uploaded_concepts
+        # cache_data からインラインでアップロード済みコンセプトを抽出
+        for item in cache_data.get("items", []):
+            if item.get("status") == "uploaded":
+                uploaded_concepts.update(extract_concepts(item.get("topic", "")))
+                uploaded_concepts.update(extract_concepts(item.get("title", "")))
+    except Exception as cg_load_err:
+        print(f"[RECOVERY_WARN] Failed to load concept guard data: {cg_load_err}")
     
     for item in cache_data.get("items", []):
         # 1. Stale Lock Recovery
@@ -84,6 +98,22 @@ def recover_stale_and_failed_locks(cache_data):
                         clean_locked_at = clean_locked_at.split(".")[0]
                     locked_at = datetime.datetime.strptime(clean_locked_at, "%Y-%m-%dT%H:%M:%S")
                     if (now - locked_at).total_seconds() > 600: # 10分タイムアウト
+                        # コンセプト重複チェック
+                        if uploaded_concepts:
+                            try:
+                                from concept_guard import extract_concepts as _ec
+                                item_concepts = set()
+                                item_concepts.update(_ec(item.get("topic", "")))
+                                item_concepts.update(_ec(item.get("title", "")))
+                                overlap = item_concepts.intersection(uploaded_concepts)
+                                if overlap:
+                                    item["status"] = "concept_blocked"
+                                    item["blocked_reason"] = f"concept_overlap:{overlap}"
+                                    item["locked_at"] = None
+                                    print(f"[RECOVERY_CONCEPT_GATE] Stale item '{item.get('id')}' blocked instead of recovered: concept overlap {overlap}")
+                                    continue
+                            except Exception:
+                                pass
                         item["status"] = "pending"
                         item["locked_at"] = None
                         recovered_count += 1
@@ -93,9 +123,29 @@ def recover_stale_and_failed_locks(cache_data):
                     
         # 2. Failed Recovery
         elif item.get("status") == "failed":
-            item["status"] = "pending"
-            recovered_count += 1
-            print(f"[RECOVERY] Reset failed status to pending for item: {item.get('id')}")
+            attempts = item.get("recovery_attempts", 0)
+            if attempts < 3:
+                # コンセプト重複チェック
+                if uploaded_concepts:
+                    try:
+                        from concept_guard import extract_concepts as _ec
+                        item_concepts = set()
+                        item_concepts.update(_ec(item.get("topic", "")))
+                        item_concepts.update(_ec(item.get("title", "")))
+                        overlap = item_concepts.intersection(uploaded_concepts)
+                        if overlap:
+                            item["status"] = "concept_blocked"
+                            item["blocked_reason"] = f"concept_overlap:{overlap}"
+                            print(f"[RECOVERY_CONCEPT_GATE] Failed item '{item.get('id')}' blocked instead of recovered: concept overlap {overlap}")
+                            continue
+                    except Exception:
+                        pass
+                item["status"] = "pending"
+                item["recovery_attempts"] = attempts + 1
+                recovered_count += 1
+                print(f"[RECOVERY] Reset failed status to pending for item: {item.get('id')} (Attempt {attempts + 1}/3)")
+            else:
+                print(f"[RECOVERY_GUARD] Item {item.get('id')} failed too many times. Retaining failed status.")
             
     return recovered_count
 
@@ -179,7 +229,7 @@ async def run_auto_post(work_dir=".", topic=None):
             if "aesthetic" in profile_key.lower():
                 topics = ["Stunning hidden gems", "Visually shocking landscapes", "Cinematic global paradise", "Mysterious geography secrets", "Breathtaking world wonders"]
             elif "dog" in profile_key.lower():
-                topics = ["Funny dog facts", "Puppy joy", "Dog training tips", "Smart dog tricks", "Living with dogs"]
+                topics = ["Dog body language secrets", "Amazing dog facts", "Dog training tips", "Dog owner life hacks", "Why dogs do weird things"]
             elif "aquatic" in profile_key.lower():
                 topics = ["Deep sea mysteries", "Strange ocean creatures", "Coral reef secrets", "Freshwater wonders", "Aquarium life hacks"]
             else:
@@ -314,7 +364,7 @@ async def run_auto_post(work_dir=".", topic=None):
             if len(cache_data["items"]) != original_len:
                 print(f"[CACHE_PURGE] Purged {original_len - len(cache_data['items'])} zombie mock cache items.")
                 save_script_cache(cache_path, cache_data)
-                
+        
         # pending（未使用）アイテムを集計
         pending_items = [item for item in cache_data.get("items", []) if item.get("status") == "pending"]
         
@@ -322,6 +372,12 @@ async def run_auto_post(work_dir=".", topic=None):
         is_dry_run = os.environ.get("DRY_RUN", "").strip().lower() == "true"
         if not is_dry_run:
             print("[FORCE_GENERATE] Production environment detected. Bypassing existing cache to force-generate new content via Gemini.")
+            # 永久防止策: 古い pending および failed のキャッシュアイテムをすべてパージしてゾンビの再利用を防ぐ
+            if "items" in cache_data:
+                original_count = len(cache_data["items"])
+                cache_data["items"] = [item for item in cache_data["items"] if item.get("status") in ["uploaded", "processing", "concept_blocked"]]
+                print(f"[CACHE_PURGE] Purged {original_count - len(cache_data['items'])} pending/failed items to prevent duplicate reuse.")
+                save_script_cache(cache_path, cache_data)
             pending_items = []
         
         # DRY_RUN かつ pending が無い場合、モックの台本を生成してテストを継続する
@@ -375,7 +431,7 @@ async def run_auto_post(work_dir=".", topic=None):
                 for gen_attempt in range(1, 4):
                     try:
                         new_raw_items = ai_generator.generate_viral_scripts_batch(
-                            topic=topic, api_key=gemini_key, batch_size=5, language=language, profile_key=profile_key
+                            topic=topic, api_key=gemini_key, batch_size=5, language=language, profile_key=profile_key, work_dir=work_dir
                         )
                         if new_raw_items:
                             break
@@ -441,6 +497,37 @@ async def run_auto_post(work_dir=".", topic=None):
                 pending_items = [item for item in cache_data.get("items", []) if item.get("status") == "pending"]
                 print(f"[CACHE] Refill completed. Pending items count: {len(pending_items)}")
 
+        # コンセプトガード: アップロード前にpendingアイテムのセマンティック重複をチェック
+        try:
+            from concept_guard import extract_concepts, get_uploaded_concepts
+            uploaded_concepts = get_uploaded_concepts(cache_path)
+            if uploaded_concepts:
+                safe_pending = []
+                for pi in pending_items:
+                    item_concepts = set()
+                    item_concepts.update(extract_concepts(pi.get("topic", "")))
+                    item_concepts.update(extract_concepts(pi.get("title", "")))
+                    item_concepts.update(extract_concepts(pi.get("script", "")))
+                    overlap = item_concepts.intersection(uploaded_concepts)
+                    if overlap:
+                        print(f"[CONCEPT_GATE] Blocking pending item '{pi.get('id')}' "
+                              f"(topic='{pi.get('topic', '')}') due to concept overlap: {overlap}")
+                        pi["status"] = "concept_blocked"
+                        pi["blocked_reason"] = f"concept_overlap:{overlap}"
+                    else:
+                        safe_pending.append(pi)
+                if len(safe_pending) < len(pending_items):
+                    save_script_cache(cache_path, cache_data)
+                    print(f"[CONCEPT_GATE] Filtered {len(pending_items) - len(safe_pending)} items. "
+                          f"Remaining safe: {len(safe_pending)}")
+                pending_items = safe_pending
+        except Exception as cg_err:
+            print(f"[CONCEPT_GATE_WARN] Concept guard pre-upload check failed: {cg_err}")
+
+        if not pending_items:
+            print("[CONCEPT_GATE] All pending items blocked by concept guard. No content to upload. Exiting safely.")
+            sys.exit(0)
+
         # 使用するアイテムを選択してロック
         target_item = pending_items[0]
         target_item["status"] = "processing"
@@ -450,7 +537,7 @@ async def run_auto_post(work_dir=".", topic=None):
         # 既存の下流変数へバインド
         title = target_item.get("title", f"{p['profile_name']} | {topic}")
         script_content = target_item.get("script", "")
-        search_query = target_item.get("search_query", "ocean")
+        search_query = target_item.get("search_query", "dog")
         
         print(f"[CACHE] Locked script ID: {target_item['id']}")
         print(f"[CACHE] Topic: {target_item.get('topic', topic)}")
@@ -489,7 +576,8 @@ async def run_auto_post(work_dir=".", topic=None):
         print("STEP: Audio duration check...")
         temp_audio_path = os.path.join(work_dir, "temp_audio_check.mp3")
         try:
-            await generate_video.generate_speech(script_content, temp_audio_path, voice=p['voice'], rate="+15%")
+            voice_val = p.get("voice") or p["voice_setting"]["short_name"]
+            await generate_video.generate_speech(script_content, temp_audio_path, voice=voice_val, rate="+15%")
             from moviepy.editor import AudioFileClip
             a_clip = AudioFileClip(temp_audio_path)
             audio_dur = a_clip.duration
@@ -651,17 +739,10 @@ async def run_auto_post(work_dir=".", topic=None):
                 else:
                     local_filenames.append(os.path.basename(part))
                     
-        history_log.append({
-            "title": title,
-            "script_content": script_content,
-            "video_ids": video_ids,
-            "local_filenames": local_filenames,
-            "timestamp": datetime.datetime.now().isoformat()
-        })
-        history_log = history_log[-20:]
-        
-        with open(history_path, "w", encoding="utf-8") as f_hist:
-            json.dump(history_log, f_hist, ensure_ascii=False, indent=2)
+        if 'target_item' in locals() and target_item:
+            target_item["video_ids"] = video_ids
+            target_item["local_filenames"] = local_filenames
+            save_script_cache(cache_path, cache_data)
     
         # 4.1 二重投稿ガード（Time-Lock Guard）
         print("STEP: Double-posting time-lock check...")
@@ -802,6 +883,23 @@ async def run_auto_post(work_dir=".", topic=None):
             target_item["video_id"] = video_id
             if 'scheduled_for_iso' in locals() and scheduled_for_iso:
                 target_item["scheduled_for"] = scheduled_for_iso
+            
+            # generated_history.json への同期書き込み (SSOT同期)
+            try:
+                history_log.append({
+                    "title": target_item.get("title", ""),
+                    "script_content": target_item.get("script", ""),
+                    "video_ids": target_item.get("video_ids", []),
+                    "local_filenames": target_item.get("local_filenames", []),
+                    "timestamp": datetime.datetime.now().isoformat()
+                })
+                history_log = history_log[-20:]
+                with open(history_path, "w", encoding="utf-8") as f_hist:
+                    json.dump(history_log, f_hist, ensure_ascii=False, indent=2)
+                print("[HISTORY] Successfully synchronized history log after upload success.")
+            except Exception as hist_err:
+                print(f"[HISTORY_ERROR] Failed to save history log: {hist_err}")
+
             save_script_cache(cache_path, cache_data)
             
             # Title Performance Learning (動画ごとの実績蓄積)

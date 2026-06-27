@@ -11,16 +11,16 @@ class TopicDiscoveryEngine:
         self.candidates_path = os.path.join(work_dir, candidates_file)
         
         self.default_seeds = [
-            "anglerfish",
-            "giant squid",
-            "bioluminescence",
-            "deep sea creatures",
-            "ocean mysteries",
-            "jellyfish",
-            "sharks",
-            "whale facts",
-            "mariana trench",
-            "underwater volcanoes"
+            "dog body language",
+            "dog psychology",
+            "dog training secrets",
+            "dog communication",
+            "dog intelligence",
+            "amazing dog abilities",
+            "dog health facts",
+            "dog owner tips",
+            "dog behavior mysteries",
+            "dog life hacks"
         ]
 
     def _load_json(self, path):
@@ -186,13 +186,11 @@ class TopicDiscoveryEngine:
                 base_seeds.append(t)
                 
         templates = [
-            "{Seed} Secrets",
-            "Mysterious {Seed}",
+            "Why Dogs {Seed}",
             "The Truth About {Seed}",
-            "{Seed} Discovery",
-            "How {Seed} Survives",
-            "Strange {Seed} Behavior",
-            "Deep Sea {Seed}"
+            "{Seed} Most People Don't Know",
+            "Dog Owners Must Know About {Seed}",
+            "Surprising Facts About {Seed}"
         ]
         
         candidates = []
@@ -211,8 +209,8 @@ class TopicDiscoveryEngine:
         # 2. テンプレート展開によるバリエーション候補
         for seed in self.default_seeds:
             for temp in templates:
-                # 重複した表現（例: deep sea deep sea creatures）を防ぐ
-                if "deep sea" in seed.lower() and "Deep Sea" in temp:
+                # 重複した表現を防ぐ
+                if "dog" in seed.lower() and "Dog" in temp:
                     continue
                 cand_topic = temp.format(Seed=seed.capitalize())
                 cat = self._detect_category(seed)
@@ -224,13 +222,19 @@ class TopicDiscoveryEngine:
 
     def _detect_category(self, topic_name):
         topic_lower = topic_name.lower()
-        if any(x in topic_lower for x in ["trench", "abyss", "volcano", "mystery", "secrets"]):
-            return "geography_mysteries"
-        elif any(x in topic_lower for x in ["anglerfish", "squid", "jellyfish", "shark", "whale", "creature", "octopus"]):
-            return "marine_life"
-        elif any(x in topic_lower for x in ["bioluminescence", "light", "glow"]):
-            return "bioluminescence"
-        return "default"
+        if any(x in topic_lower for x in ["training", "command", "obedience", "trick"]):
+            return "dog_training"
+        elif any(x in topic_lower for x in ["body language", "communication", "signal", "bark", "tail", "tilt"]):
+            return "dog_communication"
+        elif any(x in topic_lower for x in ["psychology", "behavior", "instinct", "emotion", "bond"]):
+            return "dog_psychology"
+        elif any(x in topic_lower for x in ["intelligence", "smart", "memory", "brain", "ability", "amazing"]):
+            return "dog_intelligence"
+        elif any(x in topic_lower for x in ["health", "diet", "exercise", "sleep", "vet"]):
+            return "dog_health"
+        elif any(x in topic_lower for x in ["owner", "tip", "hack", "mistake", "life"]):
+            return "dog_owner_tips"
+        return "dog_facts"
 
     def _calculate_growth_score(self, topic_name, category, winning_topics):
         """
@@ -265,7 +269,19 @@ class TopicDiscoveryEngine:
         """
         最近投稿したトピックとの距離 (Max: 30.0)
         重複・類似度が高いほどスコアを下げる。
+        コンセプト（セマンティック）重複は完全に Novelty なし (0.0) とする。
         """
+        # セマンティックコンセプト重複のチェック (全アップロード履歴ベース)
+        try:
+            from concept_guard import get_uploaded_concepts, is_concept_duplicated
+            uploaded_concepts = get_uploaded_concepts(self.cache_path)
+            is_dup, overlap = is_concept_duplicated(topic_name, uploaded_concepts)
+            if is_dup:
+                print(f"[TD_GUARD] Rejecting topic '{topic_name}' due to semantic concept overlap: {overlap}")
+                return 0.0
+        except Exception as e:
+            print(f"[TD_GUARD_WARN] Failed concept guard check: {e}")
+
         if not recent_topics:
             return 30.0
             

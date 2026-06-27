@@ -28,10 +28,6 @@ def generate_viral_script(topic="health", channel_context="", api_key=None, feed
         if credentials:
             genai.configure(credentials=credentials)
         else:
-            if api_key:
-                print(f"[DEBUG_AUTH] generate_viral_script api_key starts with: {api_key[:4]}... (length: {len(api_key)})")
-            else:
-                print("[DEBUG_AUTH] generate_viral_script api_key is None or empty")
             genai.configure(api_key=api_key)
 
     model = genai.GenerativeModel('gemini-2.5-flash')
@@ -101,7 +97,7 @@ def _parse_json_response(text):
     # エコモードではJSONパースは行わないが、他からの呼び出しでのエラーを防ぐためにダミーを用意
     return {}
 
-def generate_viral_scripts_batch(topic="health", api_key=None, batch_size=5, language="en", profile_key=""):
+def generate_viral_scripts_batch(topic="health", api_key=None, batch_size=5, language="en", profile_key="", work_dir="."):
     """
     Gemini APIを1回呼び出し、指定されたトピックに関するShorts台本を指定数（デフォルト5本）一括生成します。
     返り値: スクリプトオブジェクトのリスト
@@ -129,10 +125,6 @@ def generate_viral_scripts_batch(topic="health", api_key=None, batch_size=5, lan
         if credentials:
             genai.configure(credentials=credentials)
         else:
-            if api_key:
-                print(f"[DEBUG_AUTH] generate_viral_scripts_batch api_key starts with: {api_key[:4]}... (length: {len(api_key)})")
-            else:
-                print("[DEBUG_AUTH] generate_viral_scripts_batch api_key is None or empty")
             genai.configure(api_key=api_key)
 
     # JSONレスポンス出力を強制するための設定
@@ -192,7 +184,83 @@ def generate_viral_scripts_batch(topic="health", api_key=None, batch_size=5, lan
         items = json.loads(raw_text)
         if not isinstance(items, list):
             raise ValueError("Gemini response is not a JSON list")
+
+        # --- Batch-level and global concept-duplication validation ---
+        try:
+            from concept_guard import extract_concepts, get_uploaded_concepts
             
+            # 1. 過去のアップロード済みコンセプトの取得
+            cache_path = os.path.join(work_dir, "script_cache.json")
+            uploaded_concepts = get_uploaded_concepts(cache_path)
+            
+            seen_batch_concepts = set()
+            for idx, item in enumerate(items):
+                item_topic = item.get("topic", "")
+                item_title = item.get("title", "")
+                item_script = item.get("script", "")
+                
+                # アイテムからコンセプトを抽出 (トピック, タイトル, スクリプトを総合的に判断)
+                item_concepts = set()
+                item_concepts.update(extract_concepts(item_topic))
+                item_concepts.update(extract_concepts(item_title))
+                item_concepts.update(extract_concepts(item_script))
+                
+                # A. 過去にアップロードされたコンセプトとの重複チェック
+                overlap_global = item_concepts.intersection(uploaded_concepts)
+                if overlap_global:
+                    raise ValueError(
+                        f"Batch rejected: Item {idx} topic '{item_topic}' or script contains "
+                        f"concepts already uploaded in the past: {overlap_global}"
+                    )
+                    
+                # B. 同一バッチ内でのコンセプト重複チェック
+                overlap_batch = item_concepts.intersection(seen_batch_concepts)
+                if overlap_batch:
+                    raise ValueError(
+                        f"Batch rejected: Item {idx} topic '{item_topic}' "
+                        f"has overlapping concept {overlap_batch} with another item in the same batch"
+                    )
+                
+                # バッチ内で検知したコンセプトを蓄積
+                seen_batch_concepts.update(item_concepts)
+        except ValueError as val_err:
+            print(f"[GENERATION_GUARD] Concept guard rejected batch: {val_err}")
+            raise val_err
+        except Exception as guard_err:
+            print(f"[GENERATION_GUARD_WARN] Failed concept guard verification: {guard_err}")
+
+        import re as _re
+        def _normalize_topic(raw):
+            t = raw.lower().strip()
+            t = _re.sub(r'[^a-z0-9\s]', '', t)
+            t = _re.sub(r'\s+', ' ', t).strip()
+            return t
+
+        def _topics_are_near_identical(a, b):
+            if a == b:
+                return True
+            words_a = set(a.split())
+            words_b = set(b.split())
+            if not words_a or not words_b:
+                return False
+            intersection = words_a & words_b
+            smaller = min(len(words_a), len(words_b))
+            if smaller > 0 and len(intersection) / smaller >= 0.90:
+                return True
+            return False
+
+        normalized_topics = []
+        for idx, item in enumerate(items):
+            norm = _normalize_topic(item.get("topic", ""))
+            for prev_idx, prev_norm in normalized_topics:
+                if _topics_are_near_identical(norm, prev_norm):
+                    raise ValueError(
+                        f"Batch rejected: item {prev_idx} topic '{items[prev_idx].get('topic','')}' "
+                        f"and item {idx} topic '{item.get('topic','')}' are duplicate or near-identical"
+                    )
+            normalized_topics.append((idx, norm))
+        # --- End topic-duplication validation ---
+
         # Pexels検索クエリの自動解決をバッチ生成時に行う
         profile_lower = profile_key.lower() if profile_key else ""
         for i, item in enumerate(items):
@@ -212,7 +280,7 @@ def generate_viral_scripts_batch(topic="health", api_key=None, batch_size=5, lan
             elif "aquarium" in item_topic:
                 item["search_query"] = "aquarium,jellyfish"
             else:
-                item["search_query"] = "marine life,ocean"
+                item["search_query"] = "dog"
                 
         return items
     except Exception as e:
