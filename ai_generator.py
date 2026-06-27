@@ -157,15 +157,32 @@ def generate_viral_scripts_batch(topic="health", api_key=None, batch_size=5, lan
             """
         else:
             prompt = f"""
-            Generate exactly {batch_size} independent YouTube Shorts narration scripts about '{topic}' in English.
+            Generate exactly {batch_size} independent YouTube Shorts narration scripts in English.
             Output MUST be a valid JSON array matching the schema below. No explanation, no markdown backticks, no markdown blocks.
+
+            [PAWVANA BRAND DNA]
+            Brand: "Fast. Funny. No fluff."
+            Purpose: STOP THE SCROLL. Not to educate. Not to inform. To make the viewer think "Wait... what?" in the first 2 seconds.
+            Tone: punchy, witty, slightly chaotic. Never dry. Never a lecture.
+            Topics: surprising and bizarre facts about BOTH dogs AND cats.
+            The batch MUST include both dog and cat topics.
+
+            [MANDATORY 4-PART SCRIPT STRUCTURE]
+            Every script MUST follow this structure:
+            1. QUESTION (1-3s): Bizarre, punchy opener. Under 10 words. No warm-up.
+            2. UNEXPECTED TRUTH (3-7s): The counterintuitive or shocking fact.
+            3. TINY EXPLANATION (7-12s): One vivid sentence explaining WHY. No lecturing.
+            4. END (12-15s): Punchline or mind-blow that leaves viewer thinking "I didn't know that."
+
+            Good hook examples: "Your cat is actually a liquid." / "Dogs can smell time." / "This sound heals broken bones."
+            Bad hooks: "Did you know dogs are amazing?" / "Here is an interesting cat fact."
 
             JSON Schema:
             [
               {{
                 "topic": "Specific sub-topic name",
-                "title": "Video title (under 50 chars)",
-                "script": "15-second narration (18 to 22 words, output only the narration text, no emojis, no quotation marks)"
+                "title": "Video title (under 50 chars, must trigger 'Wait...what?' reaction)",
+                "script": "15-second narration (35 to 45 words). Follow 4-part structure: Question → Unexpected Truth → Tiny Explanation → End. Short punchy sentences only. No emojis. No quotation marks. No preamble."
               }}
             ]
             """

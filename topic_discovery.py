@@ -11,16 +11,24 @@ class TopicDiscoveryEngine:
         self.candidates_path = os.path.join(work_dir, candidates_file)
         
         self.default_seeds = [
-            "dog body language",
-            "dog psychology",
-            "dog training secrets",
-            "dog communication",
-            "dog intelligence",
-            "amazing dog abilities",
-            "dog health facts",
-            "dog owner tips",
-            "dog behavior mysteries",
-            "dog life hacks"
+            # 犬—意外な生態・秘密
+            "dog liquid time perception",
+            "dog sneeze secret language",
+            "dog dream behavior",
+            "dog scent time travel",
+            "dog emotional memory secrets",
+            "dog healing ability",
+            "dog sees color myths",
+            "dog yawn contagion",
+            # 猫—意外な生態・秘密
+            "cat liquid body physics",
+            "cat purr healing frequency",
+            "cat pheromone secret detector",
+            "cat alien night vision",
+            "cat gravity defiance",
+            "cat slow blink secret language",
+            "cat kneading hidden instinct",
+            "cat bring gifts shocking reason"
         ]
 
     def _load_json(self, path):
@@ -186,11 +194,11 @@ class TopicDiscoveryEngine:
                 base_seeds.append(t)
                 
         templates = [
-            "Why Dogs {Seed}",
-            "The Truth About {Seed}",
-            "{Seed} Most People Don't Know",
-            "Dog Owners Must Know About {Seed}",
-            "Surprising Facts About {Seed}"
+            "Your {Seed} Will Break Your Brain",
+            "The Secret Behind {Seed}",
+            "{Seed} Is Not What You Think",
+            "What Your Pet Is Actually Doing With {Seed}",
+            "The Hidden Superpower of {Seed}"
         ]
         
         candidates = []
@@ -222,18 +230,30 @@ class TopicDiscoveryEngine:
 
     def _detect_category(self, topic_name):
         topic_lower = topic_name.lower()
-        if any(x in topic_lower for x in ["training", "command", "obedience", "trick"]):
-            return "dog_training"
-        elif any(x in topic_lower for x in ["body language", "communication", "signal", "bark", "tail", "tilt"]):
+        # 猫カテゴリ
+        if any(x in topic_lower for x in ["cat", "feline", "kitty", "kitten"]):
+            if any(x in topic_lower for x in ["purr", "frequency", "healing", "vibration"]):
+                return "cat_purr"
+            elif any(x in topic_lower for x in ["liquid", "physics", "gravity", "squeeze"]):
+                return "cat_physics"
+            elif any(x in topic_lower for x in ["pheromone", "scent", "detector", "sense"]):
+                return "cat_senses"
+            elif any(x in topic_lower for x in ["night", "vision", "alien", "eye"]):
+                return "cat_vision"
+            elif any(x in topic_lower for x in ["instinct", "kneading", "behavior", "gift", "hunting"]):
+                return "cat_behavior"
+            return "cat_facts"
+        # 犬カテゴリ
+        if any(x in topic_lower for x in ["body language", "communication", "signal", "bark", "tail", "tilt", "sneeze", "yawn"]):
             return "dog_communication"
-        elif any(x in topic_lower for x in ["psychology", "behavior", "instinct", "emotion", "bond"]):
+        elif any(x in topic_lower for x in ["psychology", "behavior", "instinct", "emotion", "bond", "dream"]):
             return "dog_psychology"
-        elif any(x in topic_lower for x in ["intelligence", "smart", "memory", "brain", "ability", "amazing"]):
+        elif any(x in topic_lower for x in ["intelligence", "smart", "memory", "brain", "ability", "scent", "time"]):
             return "dog_intelligence"
-        elif any(x in topic_lower for x in ["health", "diet", "exercise", "sleep", "vet"]):
+        elif any(x in topic_lower for x in ["health", "diet", "exercise", "sleep", "healing", "vet"]):
             return "dog_health"
-        elif any(x in topic_lower for x in ["owner", "tip", "hack", "mistake", "life"]):
-            return "dog_owner_tips"
+        elif any(x in topic_lower for x in ["color", "vision", "see", "sight"]):
+            return "dog_vision"
         return "dog_facts"
 
     def _calculate_growth_score(self, topic_name, category, winning_topics):

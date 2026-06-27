@@ -267,16 +267,40 @@ class PromptBuilder:
             Generate exactly {batch_size} independent YouTube Shorts narration scripts about '{base_topic}' in English.
             Output MUST be a valid JSON array matching the schema below. No explanation, no markdown backticks, no markdown blocks.
 
-            [CHANNEL CONTENT POLICY - MANDATORY]
-            This channel covers GENERIC DOG CONTENT ONLY. You MUST follow these rules strictly:
-            ALLOWED topics: dog_facts, dog_behavior, dog_psychology, dog_training, dog_life_hacks, dog_owner_tips, dog_health_facts, dog_communication, dog_intelligence, amazing_dog_abilities.
-            FORBIDDEN topics: breed_specific_content, breed_comparisons, golden_retriever_specific, husky_specific, labrador_specific, puppy_specific_storytelling, individual_dog_profiles.
-            GOOD title examples: "Why Dogs Tilt Their Heads", "Why Dogs Sniff Everything", "Dog Body Language Secrets", "Amazing Dog Memory Facts", "Dog Owner Mistakes", "Dog Training Secrets".
-            BAD title examples: "Golden Retriever Puppy Facts", "Husky Puppy Secrets", "Labrador Puppy Training", "Story About a Specific Dog".
-            For the "search_query" field, use ONLY simple generic queries: "dog", "cute dog", "happy dog", "dog playing", "dog running", "dog owner", "dog training". Do NOT use breed-specific search terms.
+            [PAWVANA BRAND DNA — ABSOLUTE RULES]
+            This channel is called "Pawvana". It is NOT an educational channel. It is NOT a trivia channel.
+            Brand identity: "Fast. Funny. No fluff."
+            The ONLY purpose of every video is to STOP THE SCROLL. Knowledge is just the weapon — entertainment is the mission.
+            Tone: punchy, witty, slightly chaotic. Never dry. Never boring. Never lecture-like.
+            If a script sounds like it belongs in a classroom, it has FAILED.
+            If a script sounds like a generic "fun facts" compilation, it has FAILED.
+            The viewer must think: "Wait... what?" within the first 2 seconds.
+            The viewer must think: "I didn't know that." by the end.
+
+            [CHANNEL CONTENT POLICY — DOGS & CATS]
+            This channel covers surprising, bizarre, and little-known facts about BOTH dogs AND cats.
+            ALLOWED topics: dog behavior mysteries, cat bizarre habits, dog hidden abilities, cat secret senses, dog psychology, cat physics-defying traits, pet survival instincts, animal communication secrets.
+            FORBIDDEN topics: breed-specific content, breed comparisons, individual pet profiles, puppy/kitten storytelling, generic "cute" compilations, educational lectures.
+            GOOD title examples: "Your Cat is Actually a Liquid!", "Your Dog is a Time Traveler!", "The Secret Language of Dog Sneezes!", "Cat's Secret Pheromone Detector", "What Is This Alien Object?"
+            BAD title examples: "Amazing Dog Facts!", "Cute Cat Compilation", "Golden Retriever Training Tips", "5 Things About Cats".
+            For the "search_query" field, use simple queries matching the animal: "cat", "cute cat", "funny cat", "cat playing", "dog", "cute dog", "funny dog", "dog playing". Do NOT use breed-specific search terms.
+
+            [MANDATORY SCRIPT STRUCTURE — 4-PART FORMAT]
+            Every script MUST follow this exact structure. No exceptions.
+            1. QUESTION (first 1-3 seconds): Open with a short, punchy question or statement that makes the viewer stop scrolling and think "Wait... what?". No preamble. No setup. Hit them immediately.
+            2. UNEXPECTED TRUTH (3-7 seconds): Deliver the surprising, counterintuitive, or bizarre fact. This must feel like a revelation, not a textbook definition.
+            3. TINY EXPLANATION (7-12 seconds): One or two short sentences that explain WHY, using a fun or vivid analogy. Keep it snappy. No lecturing.
+            4. END (12-15 seconds): A short closer that leaves the viewer thinking "I didn't know that" or makes them want to rewatch. Can be a punchline, a mind-blow, or a callback to the opening question.
+
+            [WRITING STYLE — MANDATORY]
+            - Short sentences. Punchy delivery. No filler words.
+            - No preamble. No "Hey guys" or "In today's video". Start with the hook IMMEDIATELY.
+            - Write like you're texting a friend something insane you just learned, not reading from an encyclopedia.
+            - Every sentence must earn its place. If removing a sentence doesn't hurt the script, that sentence shouldn't exist.
+            - Use vivid, concrete language. "Your cat's purr vibrates at the same frequency used to heal broken bones" is better than "Cats have interesting purring abilities".
 
             [Context & Adaptive Learning Parameters]
-            Here are high-performing topics that generated strong audience engagement previously. Try to emulate their style, angle, or hooks:
+            Here are high-performing topics that generated strong audience engagement previously. Emulate their style, angle, and hooks:
             {os.linesep.join(top_list) if top_list else "- None"}
 
             Here are underperforming topics. AVOID these exact concepts, styles, or categories:
@@ -286,28 +310,18 @@ class PromptBuilder:
             {os.linesep.join(posted_titles_list) if posted_titles_list else "- None"}
 
             [POSTED_TOPIC_HISTORY]
-            {os.linesep.join([f"- {tp}" for tp in posted_topics]) if posted_topics else "- None"}
+            {os.linesep.join([f"- {{tp}}" for tp in posted_topics]) if posted_topics else "- None"}
 
             [Hard Anti-Repetition Rule]
             The generated batch MUST avoid all concepts already covered by POSTED_VIDEO_TITLES and POSTED_TOPIC_HISTORY.
             Do not generate:
             * alternative wording of the same concept
-            * narrower version of the same concept
-            * broader version of the same concept
+            * narrower or broader version of the same concept
             * different angle of the same concept
             * different title for the same concept
 
-            Example:
-            If POSTED_VIDEO_TITLES or POSTED_TOPIC_HISTORY contains a dog tail communication video,
-            you must not generate any topic about:
-            tail signals,
-            tail wagging,
-            tail position,
-            body-language interpretation using tails,
-            or emotional meaning of tail movement.
-
             If a generated topic is even remotely related to a concept already present in POSTED_VIDEO_TITLES or POSTED_TOPIC_HISTORY,
-            choose a completely different canine concept instead.
+            choose a completely different animal concept instead.
 
             Favor concept diversity over title diversity.
 
@@ -324,69 +338,63 @@ class PromptBuilder:
 
             [Exploration Ratio Rules]
             1. Approximately {reinforce_pct}% ({reinforce_count} scripts) MUST be reinforced topics (Reinforce), directly inspired by the successful angles/themes of the high-performing topics above.
-            2. The remaining {explore_pct}% ({explore_count} scripts) MUST be exploration topics (Explore), exploring completely new categories or dog phenomena not listed in the Top Topics, and utilizing the Emerging Topic Opportunities above.
+            2. The remaining {explore_pct}% ({explore_count} scripts) MUST be exploration topics (Explore), exploring completely new categories or animal phenomena not listed in the Top Topics, and utilizing the Emerging Topic Opportunities above.
 
             [Mandatory Topic Category Diversity]
-            Within a batch of 5 scripts, every script must belong to a different canine knowledge domain.
+            Within a batch of {batch_size} scripts, every script must belong to a different animal knowledge domain.
             Do NOT generate multiple scripts from the same domain.
+            The batch MUST include BOTH dog and cat topics (not all-dog or all-cat).
 
             Examples of domains:
-            * behavior
-            * body language
-            * training
-            * intelligence
-            * health
-            * nutrition
-            * genetics
-            * evolution
-            * aging
-            * sleep
-            * vision
-            * hearing
-            * smell
-            * reproduction
-            * history of domestication
+            * cat liquid physics
+            * dog time perception
+            * cat purr healing
+            * dog sneeze communication
+            * cat pheromone detection
+            * dog emotional memory
+            * cat night vision
+            * dog scent intelligence
+            * cat gravity defiance
+            * dog dream behavior
 
             Bad batch example:
-            tail communication
-            ear language
-            eye signals
-            stress cues
-            play invitation
-            (all are body-language related)
+            dog tail communication
+            dog ear language
+            dog eye signals
+            dog stress cues
+            dog play invitation
+            (all dog, all body-language related)
 
             Good batch example:
-            dog sleep
-            dog vision
-            dog nutrition
-            dog intelligence
-            dog aging
-            (all different domains)
+            cat liquid body physics
+            dog time perception
+            cat purr healing frequency
+            dog sneeze secret language
+            cat pheromone radar
+            (mixed dog/cat, all completely different domains)
 
-            If two topics could reasonably be grouped into the same canine concept category, only one may appear in the batch.
+            If two topics could reasonably be grouped into the same concept category, only one may appear in the batch.
 
             [BATCH CONCEPT DIVERSITY — MANDATORY]
             THIS IS THE MOST IMPORTANT RULE. VIOLATION WILL CAUSE THE ENTIRE BATCH TO BE REJECTED.
             Every single script in this batch MUST cover a COMPLETELY DIFFERENT core concept. No overlap is allowed.
             Strict rules:
-            1. Every script MUST belong to a DIFFERENT category (e.g., one about senses, one about behavior, one about cognition, one about health, one about training).
-            2. No two scripts may discuss the SAME dog behavior (e.g., if one is about tail wagging, NO other script may mention tails, wagging, or body language).
-            3. No two scripts may discuss the SAME psychological trait (e.g., if one is about memory, NO other script may mention memory, recall, remembering, or episodic memory).
-            4. No two scripts may discuss the SAME sensory topic (e.g., if one is about smell, NO other script may mention nose, scent, or sniffing).
-            5. No two scripts may discuss the SAME core concept even if worded differently.
-            6. Concept family exclusions — if one script covers ANY keyword in a family, NO other script may touch the same family:
+            1. Every script MUST belong to a DIFFERENT category (e.g., one about senses, one about behavior, one about cognition, one about health, one about physics).
+            2. No two scripts may discuss the SAME animal behavior, psychological trait, or sensory topic.
+            3. No two scripts may discuss the SAME core concept even if worded differently.
+            4. Concept family exclusions — if one script covers ANY keyword in a family, NO other script may touch the same family:
+               - PURR: purr, purring, vibration, healing frequency
+               - LIQUID: liquid, flexible, squeeze, contortion, fit
                - MEMORY: memory, episodic memory, remember, recall, recognition
-               - TAIL: tail, wag, wagging, body language, tail position
-               - BARK: bark, barking, vocalization, vocal communication, howl
+               - TAIL: tail, wag, wagging, tail position
+               - BARK: bark, barking, vocalization, howl
                - SLEEP: sleep, dreaming, dream, REM, nap
                - SMELL: smell, nose, scent, sniff, olfactory
                - HEARING: hearing, ears, sound, ultrasonic
                - EMOTION: emotion, empathy, love, attachment, bonding
-               - INTELLIGENCE: intelligence, IQ, problem solving, cognition
-               - TRAINING: training, obedience, commands, tricks
-               - HEALTH: health, diet, nutrition, exercise, lifespan
-            7. If you are unsure whether two topics overlap, treat them as the SAME concept and pick a different one.
-            8. Maximize diversity: aim for the widest possible spread across unrelated dog science areas.
+               - VISION: vision, eyes, night vision, pupils, sight
+            5. If you are unsure whether two topics overlap, treat them as the SAME concept and pick a different one.
+            6. Maximize diversity: aim for the widest possible spread across unrelated animal science areas.
             """
 
         # CTR・フック最適化指令 (Phase 5C & Phase 5E Pattern Injection)
@@ -413,25 +421,34 @@ class PromptBuilder:
             """
         else:
             hook_rules = f"""
-            [Title & Hook Optimization Rules]
+            [Title & Hook Optimization Rules — Pawvana Brand]
             ■ Winning Title Structures from previous top-performing videos (Use or adapt these structures if applicable):
-            {os.linesep.join(title_patterns) if title_patterns else "- None (Use standard CTR patterns below)"}
+            {os.linesep.join(title_patterns) if title_patterns else "- None (Use Pawvana brand patterns below)"}
 
             ■ Winning Hook Structures from previous top-performing videos (Use these types/examples as inspiration):
-            {os.linesep.join(hook_patterns) if hook_patterns else "- None (Use standard hook patterns below)"}
+            {os.linesep.join(hook_patterns) if hook_patterns else "- None (Use Pawvana brand hooks below)"}
 
-            1. Each title MUST use one of these high-CTR patterns:
-               - Curiosity gap: "This X Can..." / "You Won't Believe..."
-               - Number hook: "5 Secrets of..." / "3 Facts About..."
-               - Challenge: "Most People Don't Know..." / "Nobody Expected..."
-               - Revelation: "The Truth About..." / "Finally Revealed..."
-               - Superlative: "The Most..." / "The Deepest..." / "The Rarest..."
-            2. Each narration script MUST begin with a strong hook in the first 5-7 words:
-               - Question: "Did you know that...?"
-               - Shocking fact: "This creature can survive..."
-               - Contrast: "It looks harmless, but..."
-               - Imperative: "Look at this..." / "Imagine..."
-            3. Do NOT use generic or bland titles like "Amazing X!" or "Cool Facts".
+            [TITLE RULES — "Wait...what?" Effect]
+            Every title MUST make the viewer stop and double-take. The title alone must create cognitive dissonance.
+            Use these Pawvana-proven patterns:
+               - Absurd metaphor: "Your Cat is Actually a Liquid!" / "Your Dog is a Time Traveler!"
+               - Hidden ability: "Cat's Secret Pheromone Detector" / "The Secret Language of Dog Sneezes!"
+               - Alien framing: "What Is This Alien Object?" / "Unlocking the Healing Frequencies of Cat Purrs"
+            BANNED title patterns (too generic, no scroll-stop power):
+               - "Amazing X!" / "Cool Facts" / "5 Things About..." / "Did You Know?"
+               - Any title that could belong to ANY other pet channel is a failure.
+
+            [HOOK RULES — First 2 Seconds]
+            The narration MUST open with a question or statement so bizarre that the viewer cannot scroll past.
+            The first sentence must be under 10 words. No warm-up. No greeting. No preamble.
+            Good hooks (Pawvana style):
+               - "Your cat is actually a liquid."
+               - "Dogs can smell time."
+               - "This sound can heal broken bones."
+            Bad hooks (generic, weak):
+               - "Did you know that dogs are amazing?"
+               - "Here's an interesting fact about cats."
+               - "Today we'll learn about..."
             """
 
         schema_instruction = """
@@ -439,8 +456,8 @@ class PromptBuilder:
         [
           {
             "topic": "Specific sub-topic name",
-            "title": "Video title (under 50 chars, MUST use a CTR pattern from the rules above)",
-            "script": "15-second narration (18 to 22 words, MUST start with a strong hook, no emojis, no quotation marks)"
+            "title": "Video title (under 50 chars, MUST trigger 'Wait...what?' reaction, use Pawvana brand patterns)",
+            "script": "15-second narration script (35 to 45 words). MUST follow the 4-part structure: Question (1-3s) → Unexpected Truth (3-7s) → Tiny Explanation (7-12s) → End (12-15s). Short punchy sentences only. No emojis. No quotation marks. No preamble."
           }
         ]
         """

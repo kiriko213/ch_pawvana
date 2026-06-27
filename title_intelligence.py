@@ -13,11 +13,13 @@ class TitleIntelligenceEngine:
         self.title_registry_path = os.path.join(work_dir, title_registry_file)
         
         self.default_patterns = [
-            "The Truth About {Topic}",
-            "5 Secrets of {Topic}",
-            "{Topic}'s Deepest Secrets",
-            "This {Topic} Will Shock You",
-            "The Most Dangerous {Topic}"
+            "Your {Topic} is Actually a Liquid!",
+            "Your {Topic} is a Time Traveler!",
+            "{Topic}'s Secret You Never Knew",
+            "This {Topic} Ability Will Break Your Brain",
+            "The Hidden {Topic} Superpower",
+            "What Your {Topic} Is Really Doing",
+            "Your {Topic} Has Been Lying to You"
         ]
 
     def _load_json(self, path):
@@ -160,22 +162,36 @@ class TitleIntelligenceEngine:
                     break
 
         # --- 2. curiosity_score (最大 30点) ---
-        # 5つの要素：mystery, surprise, hidden truth, danger, rare facts
+        # Pawvana Brand DNA: "Wait...what?" を誘発する認知的不協和を最重視
         curiosity_categories = {
-            "mystery": ["secrets", "mystery", "unknown", "hidden", "dark"],
-            "surprise": ["shock", "believe", "never", "magic", "unexpected"],
-            "hidden truth": ["truth", "exposed", "revealed", "lies"],
-            "danger": ["dangerous", "deadly", "killer", "venomous", "attack"],
-            "rare facts": ["rare", "facts", "amazing", "bizarre", "weird", "strangest"]
+            "cognitive_dissonance": ["actually", "really", "secretly", "lying", "wrong", "myth"],
+            "absurd_metaphor":      ["liquid", "time traveler", "alien", "superpower", "robot", "wizard"],
+            "hidden_ability":       ["hidden", "secret", "detector", "frequency", "language", "radar"],
+            "surprise":             ["shock", "never", "unexpected", "bizarre", "insane", "weird"],
+            "brain_break":         ["break your brain", "mind-blow", "wait", "impossible", "unbelievable"]
         }
         curiosity_score = 0.0
         for category, words in curiosity_categories.items():
             if any(w in title_lower for w in words):
-                curiosity_score += 6.0 # 1つの要素につき +6点 (最大30点)
+                curiosity_score += 6.0  # 1つの要素につき +6点 (最大30点)
+
+        # 凡庸タイトルへのペナルティ (Brand DNA違反パターン)
+        generic_penalty_words = ["amazing", "facts", "the truth about", "5 secrets", "did you know", "cool", "deepest secrets", "most dangerous"]
+        for gw in generic_penalty_words:
+            if gw in title_lower:
+                curiosity_score = max(0.0, curiosity_score - 8.0)
+                break
 
         # --- 3. keyword_score (最大 20点) ---
         if boost_keywords is None:
-            boost_keywords = ["deep sea", "ocean", "dog", "puppy", "pet", "bark", "communication", "behavior", "mysterious"]
+            boost_keywords = [
+                # 犬関連
+                "dog", "dogs", "puppy", "canine",
+                # 猫関連 (Brand DNA: Savage cats)
+                "cat", "cats", "feline", "kitty", "kitten", "purr",
+                # Pawvanaブランドワード
+                "secret", "actually", "hidden", "superpower", "liquid", "time traveler"
+            ]
         keyword_score = 0.0
         for keyword in boost_keywords:
             if keyword.lower() in title_lower:

@@ -3,8 +3,25 @@
   "channel_id": "UCHkew2QJilPAicjNBbY5hcw",
   "config_key": "pawvana",
   "profile_name": "Pawvana",
-  "topic": "healing animals",
+  "topic": "cat liquid body physics",
   "lang": "en",
+  "topics": [
+    "cat liquid body physics",
+    "dog sneeze secret language",
+    "cat purr healing frequency",
+    "dog scent time travel",
+    "cat alien night vision",
+    "dog dream behavior",
+    "cat pheromone secret detector",
+    "dog emotional memory secrets",
+    "cat gravity defiance",
+    "dog sees color myths",
+    "cat slow blink secret language",
+    "dog yawn contagion",
+    "cat kneading hidden instinct",
+    "dog healing ability",
+    "cat bring gifts shocking reason"
+  ],
   "voice_setting": {
     "short_name": "en-US-GuyNeural",
     "gender": "Male"
@@ -18,10 +35,12 @@
     "resolution": [1080, 1920]
   },
   "search_keywords": [
-    "cute pets",
     "funny cats",
-    "adorable dogs",
-    "healing animals"
+    "cat playing",
+    "funny dogs",
+    "dog playing",
+    "cat behavior",
+    "dog behavior"
   ],
   "tags": [
     "shorts",
