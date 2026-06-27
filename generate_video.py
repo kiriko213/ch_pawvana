@@ -191,6 +191,9 @@ async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
     import sys
     import json
 
+    # [PEXELS_DIAG] 関数エントリ診断
+    print(f"[PEXELS_DIAG] api_key_present={bool(api_key and api_key.strip())}, query={query}, profile_key={profile_key}")
+
     # 1. 前回のゴミファイルを削除
     print("[CLEANUP] Purging ALL old assets before processing...")
     old_files = glob.glob(os.path.join(work_dir, "temp_bg_*.mp4")) + \
@@ -409,6 +412,7 @@ async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
                     res.raise_for_status()
                     v_data = res.json()
                     videos = v_data.get('videos', [])
+                    print(f"[PEXELS_DIAG] query='{search_term}' status={res.status_code} total_results={v_data.get('total_results', 'N/A')} videos_in_page={len(videos)}")
                     
                     for v in videos:
                         v_id = v.get('id')
@@ -426,15 +430,18 @@ async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
         
         # プールされた動画をバリデーションする（ブラックリスト + QSM統合）
         valid_candidates = []
+        _diag_dup = 0; _diag_bl = 0; _diag_excl = 0; _diag_req = 0; _diag_qsm = 0; _diag_aqua = 0
         for video in all_videos:
             video_id = video.get('id')
             if video_id and int(video_id) in used_visual_ids:
                 print(f"[PEXELS_GUARD] Skipping recently used video ID: {video_id}")
+                _diag_dup += 1
                 continue
 
             # Phase 3: ブラックリストチェック
             if _is_blacklisted(video, blacklist_data):
                 print(f"[BLACKLIST] Rejected video ID: {video_id}")
+                _diag_bl += 1
                 continue
 
             video_url = video.get('url', '').lower()
@@ -448,6 +455,7 @@ async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
                     is_excluded = True
                     break
             if is_excluded:
+                _diag_excl += 1
                 continue
                 
             # 必須キーワードのチェック
@@ -458,6 +466,7 @@ async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
                         has_required = True
                         break
                 if not has_required:
+                    _diag_req += 1
                     continue
 
             # Asset Validation Gate for Aquatic channel
@@ -523,6 +532,7 @@ async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
                     print(f"[QSM] Video ID {video_id}: score={qsm_score} (ACCEPTED)")
                 else:
                     print(f"[QSM] Video ID {video_id}: score={qsm_score} (REJECTED, below threshold 60)")
+                    _diag_qsm += 1
                 
         # QSMスコアの降順でソートし、上位15本を採用
         valid_candidates.sort(key=lambda x: x[2], reverse=True)
@@ -552,6 +562,17 @@ async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
 
     # 判定チェック：必要本数に1本でも満たない場合は例外を発生させて呼び出し側でフォールバックさせる
     if len(downloaded_paths) < required_count:
+        # [PEXELS_DIAG] 失敗原因の分類ログ
+        _api_called = bool(api_key and api_key != "REDACTED_API_KEY" and api_key.strip())
+        if not _api_called:
+            _reason = "api_key_missing"
+        elif len(all_videos) == 0:
+            _reason = "api_response_0_videos"
+        elif len(valid_candidates) == 0:
+            _reason = f"all_filtered (dup={_diag_dup} bl={_diag_bl} excl={_diag_excl} req={_diag_req} qsm={_diag_qsm})"
+        else:
+            _reason = f"download_failed (candidates={len(valid_candidates)} downloaded={len(downloaded_paths)})"
+        print(f"[PEXELS_DIAG] FAILURE reason={_reason} required={required_count} all_videos={len(all_videos) if _api_called else 'N/A'} valid={len(valid_candidates) if _api_called else 'N/A'} downloaded={len(downloaded_paths)}")
         raise Exception(f"Insufficient Pexels assets found (downloaded: {len(downloaded_paths)}/{required_count})")
                 
     return ",".join(downloaded_paths), "video"

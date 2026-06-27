@@ -10,6 +10,7 @@
     "gender": "Male"
   },
   "voice": "en-US-GuyNeural",
+  "pexels_api_key": "CFmUlxxZuiVxP7BmqzUN2F5C5rKnCrLi2jVedjx7r8mJeZxz6AUpR6Sg",
   "video_settings": {
     "duration": 15,
     "aspect_ratio": "9:16",
