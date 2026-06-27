@@ -615,6 +615,18 @@ async def run_auto_post(work_dir=".", topic=None):
             if pexels_key == "REDACTED_API_KEY":
                 pexels_key = None
             
+            # Diagnostic: Pexels APIキー取得元の追跡ログ
+            _src = "NONE"
+            if os.environ.get("PEXELS_API_KEY"):
+                _src = "env:PEXELS_API_KEY"
+            elif os.environ.get("PEXELS_KEY"):
+                _src = "env:PEXELS_KEY"
+            elif p.get('pexels_api_key'):
+                _src = "config.json:pexels_api_key"
+            _len = len(pexels_key) if pexels_key else 0
+            _first4 = pexels_key[:4] if pexels_key else ""
+            print(f"[PEXELS_DIAG] key_source={_src}, key_present={bool(pexels_key)}, length={_len}, first4={_first4}")
+            
             try:
                 asset_path, asset_type = await generate_video.fetch_best_visual(
                     search_query, pexels_key, profile_key=profile_key, work_dir=work_dir
