@@ -806,7 +806,7 @@ async def run_auto_post(work_dir=".", topic=None):
             'snippet': {
                 'title': title,
                 'description': full_description,
-                'tags': ['Shorts'] + p['tags'].replace('#', '').split(),
+                'tags': ['Shorts'] + (p['tags'] if isinstance(p['tags'], list) else p['tags'].replace('#', '').split()),
                 'categoryId': '22'
             },
             'status': {
