@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-07-06T13:28:04.577321Z",
+  "status": "healthy",
+  "components": {
+    "gemini_api": {
+      "status": "healthy",
+      "details": "configured"
+    },
+    "youtube_api": {
+      "status": "healthy",
+      "details": "YouTube API Client Initialized"
+    },
+    "analytics_api": {
+      "status": "healthy",
+      "details": "Analytics API Client Initialized"
+    },
+    "git_push": {
+      "status": "healthy",
+      "details": "Available"
+    },
+    "json_operations": {
+      "status": "healthy",
+      "details": "Read/Write successful"
+    },
+    "video_generation": {
+      "status": "healthy",
+      "details": "generate_video module import OK"
+    }
+  }
+}

@@ -281,7 +281,11 @@ async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
         selected_pool = dog_pool
         is_overwritten = True
     elif "pets_jp" in combined_ctx or "02_pets_jp" in combined_ctx or "pawvana" in combined_ctx:
-        selected_pool = cat_pool
+        query_lower = query.lower()
+        if "pawvana" in combined_ctx and ("dog" in query_lower or "puppy" in query_lower):
+            selected_pool = dog_pool
+        else:
+            selected_pool = cat_pool
         is_overwritten = True
     elif "ham_jp" in combined_ctx or "05_ham_jp" in combined_ctx:
         selected_pool = hamster_pool
@@ -536,12 +540,13 @@ async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
                 
         # QSMスコアの降順でソートし、上位15本を採用
         valid_candidates.sort(key=lambda x: x[2], reverse=True)
-        valid_candidates = valid_candidates[:15]
+        top_candidates = valid_candidates[:15]
         
         # 必要な本数分、シャッフルされたリストから順に割り当ててダウンロード
-        if len(valid_candidates) >= required_count:
+        if len(top_candidates) >= required_count:
+            selected_candidates = random.sample(top_candidates, required_count)
             for idx in range(required_count):
-                selected_video, selected_files, qsm_score = valid_candidates[idx]
+                selected_video, selected_files, qsm_score = selected_candidates[idx]
                 video_id = selected_video.get('id')
                 best_file = selected_files[0]
                 dest_path = os.path.join(work_dir, f"temp_bg_{idx}_{video_id}.mp4")

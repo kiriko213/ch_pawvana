@@ -1,0 +1,53 @@
+{
+  "failures": [
+    {
+      "timestamp": "2026-06-21T13:14:00.899177Z",
+      "component": "Gemini_API",
+      "error_type": "KEY_MISSING",
+      "error_message": "Gemini API key is missing",
+      "recovery_action": "Abort"
+    },
+    {
+      "timestamp": "2026-06-21T13:16:27.299086Z",
+      "component": "Gemini_API",
+      "error_type": "KEY_MISSING",
+      "error_message": "Gemini API key is missing",
+      "recovery_action": "Abort"
+    },
+    {
+      "timestamp": "2026-06-21T15:04:13.124063Z",
+      "component": "Gemini_API",
+      "error_type": "GENERATION_FAILURE",
+      "error_message": "401 Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project. [reason: \"ACCESS_TOKEN_TYPE_UNSUPPORTED\"\nmetadata {\n  key: \"service\"\n  value: \"generativelanguage.googleapis.com\"\n}\nmetadata {\n  key: \"method\"\n  value: \"google.ai.generativelanguage.v1beta.GenerativeService.GenerateContent\"\n}\n]",
+      "recovery_action": "Retrying Gemini generation (attempt 1/3)..."
+    },
+    {
+      "timestamp": "2026-06-21T15:04:15.316710Z",
+      "component": "Gemini_API",
+      "error_type": "GENERATION_FAILURE",
+      "error_message": "401 Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project. [reason: \"ACCESS_TOKEN_TYPE_UNSUPPORTED\"\nmetadata {\n  key: \"service\"\n  value: \"generativelanguage.googleapis.com\"\n}\nmetadata {\n  key: \"method\"\n  value: \"google.ai.generativelanguage.v1beta.GenerativeService.GenerateContent\"\n}\n]",
+      "recovery_action": "Retrying Gemini generation (attempt 2/3)..."
+    },
+    {
+      "timestamp": "2026-06-21T15:04:17.497133Z",
+      "component": "Gemini_API",
+      "error_type": "GENERATION_FAILURE",
+      "error_message": "401 Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project. [reason: \"ACCESS_TOKEN_TYPE_UNSUPPORTED\"\nmetadata {\n  key: \"service\"\n  value: \"generativelanguage.googleapis.com\"\n}\nmetadata {\n  key: \"method\"\n  value: \"google.ai.generativelanguage.v1beta.GenerativeService.GenerateContent\"\n}\n]",
+      "recovery_action": "Gemini API failed permanently. Generation aborted."
+    },
+    {
+      "timestamp": "2026-06-26T22:19:58.607707Z",
+      "component": "Gemini_API",
+      "error_type": "GENERATION_FAILURE",
+      "error_message": "Batch rejected: Item 4 topic 'Canine Zoomies' has overlapping concept {'EYES'} with another item in the same batch",
+      "recovery_action": "Retrying Gemini generation (attempt 1/3)..."
+    },
+    {
+      "timestamp": "2026-06-26T22:20:20.369286Z",
+      "component": "Gemini_API",
+      "error_type": "GENERATION_FAILURE",
+      "error_message": "Batch rejected: Item 2 topic 'Dog-Human Communication Psychology' has overlapping concept {'EYES'} with another item in the same batch",
+      "recovery_action": "Retrying Gemini generation (attempt 2/3)..."
+    }
+  ]
+}

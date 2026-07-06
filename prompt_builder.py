@@ -172,6 +172,26 @@ class PromptBuilder:
             YouTubeショート動画用の独立した台本を正確に{batch_size}本、日本語で作成してください。
             出力は必ず以下のスキーマに準拠した有効なJSON配列にしてください。説明文やMarkdownのコードブロックは一切含めないでください。
 
+            [PAWVANA BRAND DNA — 絶対ルール]
+            このチャンネルは「Pawvana」です。教育チャンネルやトリビアチャンネルではありません。
+            ブランドDNA: "Fast. Funny. No fluff."（速く、面白く、無駄がない）
+            唯一の目的は「視聴者のスクロールを止めること」です。知識は武器であり、エンタメこそが使命です。
+            トーン: パンチが効いていて、ウィットに富み、少しカオスであること。退屈で講義のような説明は厳禁です。
+            視聴者が最初の2秒で「えっ…何だって？」と思い、最後には「それは知らなかった！」と思うようにしてください。
+
+            [チャンネルコンテンツポリシー — 犬と猫]
+            このチャンネルは犬と猫の両方の驚くべき、あるいは風変わりなトピックをカバーします。
+            バッチ内には必ず犬と猫の両方のトピックを含めてください（すべて犬、あるいはすべて猫にするのは禁止）。
+            タイトルはスクロールを止める力があること。「猫は実は液体！」や「犬はタイムトラベラー！」のような比喩、驚きの能力を表現したタイトルにしてください。
+            search_queryフィールドには、対象の動物に合ったシンプルなクエリ（"cat", "cute cat", "dog", "cute dog"など）を設定してください。
+
+            [必須台本構成 — 4部構成フォーマット]
+            すべてのスクリプトは必ず以下の構成に従ってください。
+            1. 質問 (1-3秒): スクロールを止める短い質問または発言。前置きは一切不要。
+            2. 意外な真実 (3-7秒): 直感的ではない、あるいは衝撃的な事実を提示。
+            3. 簡単な説明 (7-12秒): その理由を鮮やかな比喩などを使って1〜2文で短く説明。
+            4. 結び (12-15秒): 視聴者が「知らなかった」と思うような、あるいは再視聴したくなるようなオチや結び。
+
             【適応型学習パラメータ】
             ■ 過去の高評価・好成績トピック (これらを参考にし、同様のフックや切り口を模倣してください):
             {os.linesep.join(top_list) if top_list else "- なし"}
@@ -186,30 +206,8 @@ class PromptBuilder:
             {os.linesep.join([f"- {tp}" for tp in posted_topics]) if posted_topics else "- なし"}
 
             [Hard Anti-Repetition Rule]
-            The generated batch MUST avoid all concepts already covered by POSTED_VIDEO_TITLES and POSTED_TOPIC_HISTORY.
-            Do not generate:
-            * alternative wording of the same concept
-            * narrower version of the same concept
-            * broader version of the same concept
-            * different angle of the same concept
-            * different title for the same concept
-
-            Example:
-            If POSTED_VIDEO_TITLES or POSTED_TOPIC_HISTORY contains a dog tail communication video,
-            you must not generate any topic about:
-            tail signals,
-            tail wagging,
-            tail position,
-            body-language interpretation using tails,
-            or emotional meaning of tail movement.
-
-            If a generated topic is even remotely related to a concept already present in POSTED_VIDEO_TITLES or POSTED_TOPIC_HISTORY,
-            choose a completely different canine concept instead.
-
-            Favor concept diversity over title diversity.
-
-            Rule:
-            Never generate a topic, title, angle, hook, or concept that is semantically similar to any title in POSTED_VIDEO_TITLES or any topic in POSTED_TOPIC_HISTORY.
+            生成されるバッチは、POSTED_VIDEO_TITLESおよびPOSTED_TOPIC_HISTORYでカバーされている概念を絶対に避けてください。
+            同一コンセプトの言い換えや、異なる角度からのタイトル付けも重複とみなします。少しでも関連している場合は、全く異なる動物のコンセプトを選択してください。タイトルの多様性よりも、コンセプト（概念）の多様性を最優先してください。
 
             【トレンド予測・新規テーマ候補】
             ■ 以下の予測スコアが高いテーマを、新規テーマ探索（Explore）の台本を作成する際の参考にしてください：
@@ -221,46 +219,24 @@ class PromptBuilder:
 
             【探索比率 (Exploration Ratio)】
             1. 生成する{batch_size}本のうち、約{reinforce_pct}% ({reinforce_count}本) は、「過去の高評価トピック」の強みや特徴を継承・再現したトピック（Reinforce）にしてください。
-            2. 残りの約{explore_pct}% ({explore_count}本) は、「トレンド予測・新規テーマ候補」や、これまでに試したことのない新しいニッチな領域に関するテーマを探索的（Explore）に作成してください。
+            2. 残りの約{explore_pct}% ({explore_count}本) は、「トレンド予測・新規テーマ候補」や、新しいニッチな領域に関するテーマを探索的（Explore）に作成してください。
 
             [Mandatory Topic Category Diversity]
-            Within a batch of 5 scripts, every script must belong to a different canine knowledge domain.
-            Do NOT generate multiple scripts from the same domain.
+            バッチ内の5本のスクリプトは、それぞれ全く異なる動物ドメイン（分野）に属している必要があります。
+            同じ分野から複数のスクリプトを生成しないでください。
+            ドメインの例：
+            * 猫の液状化物理 (cat liquid physics)
+            * 犬の時間知覚 (dog time perception)
+            * 猫のゴロゴロ音の治癒効果 (cat purr healing)
+            * 犬のクシャミの秘密の言葉 (dog sneeze communication)
+            * 猫のフェロモン検知 (cat pheromone detection)
+            * 犬の感情的な記憶 (dog emotional memory)
+            * 猫の夜間視力 (cat night vision)
+            * 犬の嗅覚インテリジェンス (dog scent intelligence)
+            * 猫の重力無視 (cat gravity defiance)
+            * 犬の夢の行動 (dog dream behavior)
 
-            Examples of domains:
-            * behavior
-            * body language
-            * training
-            * intelligence
-            * health
-            * nutrition
-            * genetics
-            * evolution
-            * aging
-            * sleep
-            * vision
-            * hearing
-            * smell
-            * reproduction
-            * history of domestication
-
-            Bad batch example:
-            tail communication
-            ear language
-            eye signals
-            stress cues
-            play invitation
-            (all are body-language related)
-
-            Good batch example:
-            dog sleep
-            dog vision
-            dog nutrition
-            dog intelligence
-            dog aging
-            (all different domains)
-
-            If two topics could reasonably be grouped into the same canine concept category, only one may appear in the batch.
+            バッチ内に同じコンセプトカテゴリーに分類できるトピックが2つ以上存在することは許されません。
             """
         else:
             lang_instruction = f"""

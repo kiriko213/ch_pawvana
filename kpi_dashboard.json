@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-07-06T13:32:13.476850Z",
+  "kpis": {
+    "uploads": 0,
+    "views": 0,
+    "ctr_average": 0.0,
+    "apv_average": 0.0,
+    "subscribers_gained": 0,
+    "cgs_average": 0.0,
+    "top_topics": [],
+    "top_titles": [
+      "Dog Observational Learning's Deepest Secrets"
+    ]
+  },
+  "production_metrics": {
+    "success_rate_percent": 0.0,
+    "failure_rate_percent": 100.0,
+    "retry_rate_percent": 57.14,
+    "upload_latency_seconds": 0.0,
+    "generation_latency_seconds": 248.36
+  },
+  "warnings": []
+}

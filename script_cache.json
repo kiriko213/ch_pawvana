@@ -1,0 +1,103 @@
+{
+  "channel": "ch_pawvana",
+  "schema_version": 2,
+  "updated_at": "2026-07-06T13:32:13.425526Z",
+  "items": [
+    {
+      "topic": "Dog Observational Learning",
+      "title": "Dog Observational Learning's Deepest Secrets",
+      "script": "Did you know dogs learn by watching you? They can imitate actions, from opening doors to simple commands, just by observing their human companions.",
+      "search_query": "dog,puppy",
+      "id": "aq_1782512250_0",
+      "status": "uploaded",
+      "locked_at": "2026-07-06T13:28:04.821883Z",
+      "used_at": "2026-07-06T13:32:13.424037Z",
+      "video_id": "vid_dryrun_mock_123",
+      "original_title": "You Won't Believe How Dogs Learn!",
+      "hook_score": 55.0,
+      "hook_title_score": 80,
+      "hook_opening_score": 30,
+      "video_ids": [
+        27378566,
+        10981872
+      ],
+      "local_filenames": [],
+      "scheduled_for": "2026-07-07T09:00:00Z"
+    },
+    {
+      "topic": "Dog Head Tilting Behavior",
+      "title": "5 Secrets of Dog Head Tilting Behavior",
+      "script": "Ever wonder why your dog tilts its head? They're trying to hear and understand you better, pinpointing sounds and reading your facial expressions for crucial cues. It's truly amazing.",
+      "search_query": "dog,puppy",
+      "id": "aq_1782512438_0",
+      "status": "pending",
+      "locked_at": null,
+      "used_at": null,
+      "video_id": null,
+      "original_title": "The Truth About Dog Head Tilts!",
+      "hook_score": 45.0,
+      "hook_title_score": 90,
+      "hook_opening_score": 0
+    },
+    {
+      "topic": "Dog Circling Before Lying Down",
+      "title": "5 Secrets of Dog Circling Before Lying Down",
+      "script": "Why do dogs circle before lying down? It's an ancient instinct. They're checking for predators, marking their territory, and creating the perfect comfy spot. Wild instincts persist!",
+      "search_query": "dog,puppy",
+      "id": "aq_1782512438_1",
+      "status": "pending",
+      "locked_at": null,
+      "used_at": null,
+      "video_id": null,
+      "original_title": "5 Secrets of Dog Circling Before Sleep",
+      "hook_score": 50.0,
+      "hook_title_score": 90,
+      "hook_opening_score": 10
+    },
+    {
+      "topic": "Dog Following Behavior",
+      "title": "Dog Following Behavior's Deepest Secrets",
+      "script": "Does your dog follow you everywhere? This isn't just seeking attention! It's their pack instinct for safety and a deep desire for companionship. You are their trusted leader.",
+      "search_query": "dog,puppy",
+      "id": "aq_1782512438_2",
+      "status": "pending",
+      "locked_at": null,
+      "used_at": null,
+      "video_id": null,
+      "original_title": "This Dog Behavior Will Shock You!",
+      "hook_score": 45.0,
+      "hook_title_score": 80,
+      "hook_opening_score": 10
+    },
+    {
+      "topic": "Dog Gifting Behavior",
+      "title": "Dog Gifting Behavior's Deepest Secrets",
+      "script": "Ever received a 'gift' from your dog? They often share prized possessions to show trust and include you in their pack. It's a unique social ritual of belonging.",
+      "search_query": "dog,puppy",
+      "id": "aq_1782512438_3",
+      "status": "pending",
+      "locked_at": null,
+      "used_at": null,
+      "video_id": null,
+      "original_title": "The Truth About Dog 'Gifts'!",
+      "hook_score": 40.0,
+      "hook_title_score": 80,
+      "hook_opening_score": 0
+    },
+    {
+      "topic": "Dog Kicking Grass After Potty",
+      "title": "This Dog Kicking Grass After Potty Will Shock You",
+      "script": "Why do dogs kick grass after potty? It's more than just covering up! They're leaving scent markers from glands in their paws, broadcasting their presence to other dogs.",
+      "search_query": "dog,puppy",
+      "id": "aq_1782512438_4",
+      "status": "pending",
+      "locked_at": null,
+      "used_at": null,
+      "video_id": null,
+      "original_title": "Most People Don't Know This Dog Secret!",
+      "hook_score": 15.0,
+      "hook_title_score": 20,
+      "hook_opening_score": 10
+    }
+  ]
+}

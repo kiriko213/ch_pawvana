@@ -202,51 +202,17 @@ def generate_viral_scripts_batch(topic="health", api_key=None, batch_size=5, lan
         if not isinstance(items, list):
             raise ValueError("Gemini response is not a JSON list")
 
-        # --- Batch-level and global concept-duplication validation ---
-        try:
-            from concept_guard import extract_concepts, get_uploaded_concepts
-            
-            # 1. 過去のアップロード済みコンセプトの取得
-            cache_path = os.path.join(work_dir, "script_cache.json")
-            uploaded_concepts = get_uploaded_concepts(cache_path)
-            
-            seen_batch_concepts = set()
-            for idx, item in enumerate(items):
-                item_topic = item.get("topic", "")
-                item_title = item.get("title", "")
-                item_script = item.get("script", "")
-                
-                # アイテムからコンセプトを抽出 (トピック, タイトル, スクリプトを総合的に判断)
-                item_concepts = set()
-                item_concepts.update(extract_concepts(item_topic))
-                item_concepts.update(extract_concepts(item_title))
-                item_concepts.update(extract_concepts(item_script))
-                
-                # A. 過去にアップロードされたコンセプトとの重複チェック
-                overlap_global = item_concepts.intersection(uploaded_concepts)
-                if overlap_global:
-                    raise ValueError(
-                        f"Batch rejected: Item {idx} topic '{item_topic}' or script contains "
-                        f"concepts already uploaded in the past: {overlap_global}"
-                    )
-                    
-                # B. 同一バッチ内でのコンセプト重複チェック
-                overlap_batch = item_concepts.intersection(seen_batch_concepts)
-                if overlap_batch:
-                    raise ValueError(
-                        f"Batch rejected: Item {idx} topic '{item_topic}' "
-                        f"has overlapping concept {overlap_batch} with another item in the same batch"
-                    )
-                
-                # バッチ内で検知したコンセプトを蓄積
-                seen_batch_concepts.update(item_concepts)
-        except ValueError as val_err:
-            print(f"[GENERATION_GUARD] Concept guard rejected batch: {val_err}")
-            raise val_err
-        except Exception as guard_err:
-            print(f"[GENERATION_GUARD_WARN] Failed concept guard verification: {guard_err}")
-
+        # --- Concept-duplication validation & Incremental replenishment loop ---
+        from concept_guard import extract_concepts, get_uploaded_concepts
         import re as _re
+
+        # 1. 過去のアップロード済みコンセプトの取得
+        cache_path = os.path.join(work_dir, "script_cache.json")
+        uploaded_concepts = get_uploaded_concepts(cache_path)
+        
+        seen_batch_concepts = set()
+        valid_items = []
+
         def _normalize_topic(raw):
             t = raw.lower().strip()
             t = _re.sub(r'[^a-z0-9\s]', '', t)
@@ -266,21 +232,130 @@ def generate_viral_scripts_batch(topic="health", api_key=None, batch_size=5, lan
                 return True
             return False
 
-        normalized_topics = []
-        for idx, item in enumerate(items):
-            norm = _normalize_topic(item.get("topic", ""))
-            for prev_idx, prev_norm in normalized_topics:
-                if _topics_are_near_identical(norm, prev_norm):
-                    raise ValueError(
-                        f"Batch rejected: item {prev_idx} topic '{items[prev_idx].get('topic','')}' "
-                        f"and item {idx} topic '{item.get('topic','')}' are duplicate or near-identical"
-                    )
-            normalized_topics.append((idx, norm))
-        # --- End topic-duplication validation ---
+        # 最初の一括生成されたアイテムを検証
+        for item in items:
+            item_topic = item.get("topic", "")
+            item_title = item.get("title", "")
+            item_script = item.get("script", "")
+            
+            # コンセプトの抽出
+            item_concepts = set()
+            item_concepts.update(extract_concepts(item_topic))
+            item_concepts.update(extract_concepts(item_title))
+            item_concepts.update(extract_concepts(item_script))
+            
+            # A. 過去のアップロードとの重複チェック
+            overlap_global = item_concepts.intersection(uploaded_concepts)
+            if overlap_global:
+                print(f"[GENERATION_GUARD] Global overlap detected for '{item_topic}': {overlap_global}. Skipping.")
+                continue
+                
+            # B. 同一バッチ内でのコンセプト重複チェック
+            overlap_batch = item_concepts.intersection(seen_batch_concepts)
+            if overlap_batch:
+                print(f"[GENERATION_GUARD] Batch overlap detected for '{item_topic}': {overlap_batch}. Skipping.")
+                continue
+
+            # C. トピックの厳密な類似チェック
+            norm_topic = _normalize_topic(item_topic)
+            is_near_identical = False
+            for prev_item in valid_items:
+                prev_norm = _normalize_topic(prev_item.get("topic", ""))
+                if _topics_are_near_identical(norm_topic, prev_norm):
+                    is_near_identical = True
+                    break
+            if is_near_identical:
+                print(f"[GENERATION_GUARD] Near-identical topic detected for '{item_topic}'. Skipping.")
+                continue
+            
+            # すべてのガードを通過した場合
+            valid_items.append(item)
+            seen_batch_concepts.update(item_concepts)
+
+        # 不足分がある場合、Gemini APIに対して再生成/補充ループを実行する (最大3回リトライ)
+        max_retries = 3
+        retry_count = 0
+        while len(valid_items) < batch_size and retry_count < max_retries:
+            needed_count = batch_size - len(valid_items)
+            retry_count += 1
+            print(f"[GENERATION_GUARD] Batch incomplete ({len(valid_items)}/{batch_size}). Replenishing {needed_count} items (Attempt {retry_count}/{max_retries})...")
+            
+            # 禁止する既存コンセプト（過去 + 現在バッチ）の一覧をプロンプト用に結合
+            forbidden_list = sorted(list(uploaded_concepts.union(seen_batch_concepts)))
+            forbidden_instr = ""
+            if forbidden_list:
+                forbidden_instr = f"\n[FORBIDDEN CONCEPTS / TOPICS]\nDo NOT generate any scripts related to the following concepts:\n"
+                forbidden_instr += "\n".join([f"- {c}" for c in forbidden_list])
+                forbidden_instr += "\nFocus on entirely new topics that do not overlap with the forbidden list."
+
+            # リトライ用のプロンプト構築
+            retry_prompt = prompt
+            str_batch_size = str(batch_size)
+            retry_prompt = retry_prompt.replace(f"exactly {str_batch_size} independent", f"exactly {needed_count} independent")
+            retry_prompt = retry_prompt.replace(f"正確に{str_batch_size}本", f"正確に{needed_count}本")
+            retry_prompt = retry_prompt.replace(f"約{str_batch_size}本", f"約{needed_count}本")
+            retry_prompt = retry_prompt.replace(f"of {str_batch_size} scripts", f"of {needed_count} scripts")
+            retry_prompt = retry_prompt.replace(f"うち、約{str_batch_size}%", f"うち、約{needed_count}%")
+            retry_prompt += "\n" + forbidden_instr
+            
+            try:
+                # 補充リクエストの送信
+                response = model.generate_content(retry_prompt)
+                raw_text = response.text.strip()
+                if raw_text.startswith("```"):
+                    raw_text = re.sub(r'^```(?:json)?\n', '', raw_text)
+                    raw_text = re.sub(r'\n```$', '', raw_text)
+                    raw_text = raw_text.strip()
+                
+                new_items = json.loads(raw_text)
+                if isinstance(new_items, list):
+                    for item in new_items:
+                        if len(valid_items) >= batch_size:
+                            break
+                        item_topic = item.get("topic", "")
+                        item_title = item.get("title", "")
+                        item_script = item.get("script", "")
+                        
+                        item_concepts = set()
+                        item_concepts.update(extract_concepts(item_topic))
+                        item_concepts.update(extract_concepts(item_title))
+                        item_concepts.update(extract_concepts(item_script))
+                        
+                        overlap_global = item_concepts.intersection(uploaded_concepts)
+                        if overlap_global:
+                            print(f"[GENERATION_GUARD] [RETRY] Global overlap for '{item_topic}': {overlap_global}. Skipping.")
+                            continue
+                            
+                        overlap_batch = item_concepts.intersection(seen_batch_concepts)
+                        if overlap_batch:
+                            print(f"[GENERATION_GUARD] [RETRY] Batch overlap for '{item_topic}': {overlap_batch}. Skipping.")
+                            continue
+
+                        norm_topic = _normalize_topic(item_topic)
+                        is_near_identical = False
+                        for prev_item in valid_items:
+                            prev_norm = _normalize_topic(prev_item.get("topic", ""))
+                            if _topics_are_near_identical(norm_topic, prev_norm):
+                                is_near_identical = True
+                                break
+                        if is_near_identical:
+                            print(f"[GENERATION_GUARD] [RETRY] Near-identical topic for '{item_topic}'. Skipping.")
+                            continue
+
+                        # 合格した場合はマージ
+                        valid_items.append(item)
+                        seen_batch_concepts.update(item_concepts)
+            except Exception as retry_err:
+                print(f"[GENERATION_GUARD_WARN] Retry attempt {retry_count} failed: {retry_err}")
+                
+        if len(valid_items) < batch_size:
+            print(f"[GENERATION_GUARD_WARN] Could not replenish to full batch size {batch_size}. Proceeding with {len(valid_items)} valid items.")
+        else:
+            print(f"[GENERATION_GUARD] Successfully established full batch of {batch_size} unique items.")
 
         # Pexels検索クエリの自動解決をバッチ生成時に行う
         profile_lower = profile_key.lower() if profile_key else ""
-        for i, item in enumerate(items):
+        for i, item in enumerate(valid_items):
             item_topic = item.get("topic", topic).lower()
             if "dog" in profile_lower or "dog" in item_topic:
                 item["search_query"] = "dog,puppy"
