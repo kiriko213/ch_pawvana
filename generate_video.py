@@ -182,7 +182,7 @@ async def generate_speech(text, output_path, voice="ja-JP-NanamiNeural", rate="+
             print(f"gTTS Fallback Error: {fallback_e}")
             raise
 
-async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
+async def fetch_best_visual(query, api_key, profile_key=".", work_dir=".", topic=None):
     import os
     import glob
     import shutil
@@ -281,11 +281,18 @@ async def fetch_best_visual(query, api_key, profile_key=".", work_dir="."):
         selected_pool = dog_pool
         is_overwritten = True
     elif "pets_jp" in combined_ctx or "02_pets_jp" in combined_ctx or "pawvana" in combined_ctx:
-        query_lower = query.lower()
-        if "pawvana" in combined_ctx and ("dog" in query_lower or "puppy" in query_lower):
-            selected_pool = dog_pool
+        if topic is not None:
+            topic_lower = topic.lower()
+            if "pawvana" in combined_ctx and ("dog" in topic_lower or "puppy" in topic_lower):
+                selected_pool = dog_pool
+            else:
+                selected_pool = cat_pool
         else:
-            selected_pool = cat_pool
+            query_lower = query.lower()
+            if "pawvana" in combined_ctx and ("dog" in query_lower or "puppy" in query_lower):
+                selected_pool = dog_pool
+            else:
+                selected_pool = cat_pool
         is_overwritten = True
     elif "ham_jp" in combined_ctx or "05_ham_jp" in combined_ctx:
         selected_pool = hamster_pool

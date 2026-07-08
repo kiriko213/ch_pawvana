@@ -629,7 +629,7 @@ async def run_auto_post(work_dir=".", topic=None):
             
             try:
                 asset_path, asset_type = await generate_video.fetch_best_visual(
-                    search_query, pexels_key, profile_key=profile_key, work_dir=work_dir
+                    search_query, pexels_key, profile_key=profile_key, work_dir=work_dir, topic=target_item.get("topic", topic)
                 )
                 print(f"ASSET (Pexels+QSM): path={asset_path}, type={asset_type}")
                 if not asset_path:
